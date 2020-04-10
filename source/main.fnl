@@ -5,8 +5,8 @@
 (fn out-of-bounds? [object]
   (or (< object.x 0)
       (< object.y 0)
-      (> (+ object.x object.w) WIDTH)
-      (> (+ object.y object.h) HEIGHT)))
+      (> (+ object.x object.w) +width+)
+      (> (+ object.y object.h) +height+)))
 
 ;; Shortcut for math.random
 (fn r [a b]
@@ -19,9 +19,49 @@
        (< a.y (+ b.y b.h))
        (> (+ a.y a.h) b.y)))
 
+;; Rounds a float number to its closest integer
+(fn math.round [n]
+  (math.floor (+ n 0.5)))
+
+;;; Gets the index of an element in a vector
+;(fn index-of [element vector]
+  ;(var element-index 1)
+  ;(each [index value (pairs vector)]
+    ;(when (= value element)
+          ;(do (set element-index index)
+              ;(lua :break))))
+  ;element-index)
+
+;;; -------------------------------------------------------------------------------------------- ;;;
+;;; Animation                                                                                    ;;;
+;;; -------------------------------------------------------------------------------------------- ;;;
+
+;; Gets next frame for the frames of an animation
+(fn get-next-index [animation-length current-index]
+  ;(trace current-index)
+
+  (let [next-index (+ current-index 1)]
+    (if (> next-index animation-length)
+        1
+        next-index)))
+
+(fn get-animation-frame [animator]
+  (. (. animator.animations animator.current-animation) animator.current-index))
+
+;; Animates object with a animator property
+(fn animate [object]
+  (if (> object.animator.elapsed object.animator.speed)
+      (do (tset object.animator :elapsed 0.0)
+          (tset object.animator :current-index (get-next-index (length
+                                                                 (. object.animator.animations
+                                                                    object.animator.current-animation))
+                                                               object.animator.current-index)))
+      (tset object.animator :elapsed (+ object.animator.elapsed (* 1000.0 *dt*)))))
+
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Shots                                                                                        ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
+
 ;; List of shot types and their respective sprites
 (global *shot-types* { :shot-player 5 :shot-fish 6 })
 
@@ -48,6 +88,18 @@
          :health 100
        })
 
+;; Player animations
+(tset *player*
+      :animator {
+        :current-animation :moving
+        :current-index 1
+        :elapsed 0
+        :speed 300
+        :animations {
+          :moving [ 1 2 ]
+        }
+      })
+
 ;; Updates player and player's shots
 (tset *player*
       :update (fn [self]
@@ -68,9 +120,9 @@
                 (set self.y (+ self.y self.vy))
 
                 ;; Check if out of bounds and reposition player
-                (if (> (+ self.x self.w) WIDTH) (set self.x (- WIDTH self.w))
+                (if (> (+ self.x self.w) +width+) (set self.x (- +width+ self.w))
                   (< self.x 0) (set self.x 0))
-                (if (> (+ self.y self.h) HEIGHT) (set self.y (- HEIGHT self.h))
+                (if (> (+ self.y self.h) +height+) (set self.y (- +height+ self.h))
                   (< self.y 0) (set self.y 0))
 
                 ;; Update shots
@@ -85,7 +137,8 @@
 ;; Draws player
 (tset *player*
       :draw (fn [self]
-              (spr 1 self.x self.y 0)))
+              (animate self)
+              (spr (get-animation-frame self.animator) self.x self.y 0)))
 
 ;; Performs player shoot action
 (tset *player*
@@ -111,13 +164,12 @@
 
 ;; Spawns a single enemy given a type and an optional y position value
 (fn spawn-enemy [type ?y]
-  (let [enemy (if (= type :simple-fish) { :w 8 :h 8 :speed 2 :damage 1 }
-               (= type :stronger-fish)  { :w 8 :h 8 :speed 2 :damage 2 })]
-    
+  (let [enemy (if (= type :simple-fish)    { :w 8.0 :h 8.0 :speed 50.0  :damage 2.0 }
+                  (= type :stronger-fish)  { :w 8.0 :h 8.0 :speed 100.0 :damage 2.0 })]
     (tset enemy :type type)
-    (tset enemy :x (+ WIDTH 8))
+    (tset enemy :x (+ +width+ 8.0))
     (if (not ?y)
-        (tset enemy :y (r 0 (- HEIGHT enemy.h)))
+        (tset enemy :y (r 0 (- +height+ enemy.h)))
         (tset enemy :y ?y))
     (table.insert *enemy-pool* enemy)))
 
@@ -125,22 +177,23 @@
 (fn destroy-enemy [index]
   (table.remove *enemy-pool* index))
 
-
+;; Updates enemies from *enemy-pool*
 (fn update-enemies []
   ;; Update enemy position
   (each [index enemy (pairs *enemy-pool*)]
-    (set enemy.x (- enemy.x enemy.speed))
+    (set enemy.x (- enemy.x (* enemy.speed *dt*)))
     (spr (. *enemy-types* enemy.type) enemy.x enemy.y 0)
 
-
+    ;; Deal with player-enemy collision
     (when (collide? *player* enemy) (tset *player* :health (- *player*.health enemy.damage)))
 
+    ;; Deal with shot-enemy collision
     (each [shot-index shot (pairs *player*.shots)]
       (when (collide? shot enemy) (do (destroy-enemy index)
                                       (destroy-shot shot-index))))
 
     ;; Destroy enemy if it's to the left of the screen
-    (when (< (+ enemy.x enemy.w) -8) (destroy-enemy index))))
+    (when (< (+ enemy.x enemy.w) -8.0) (destroy-enemy index))))
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Game                                                                                         ;;;
@@ -177,13 +230,21 @@
 
 (fn init []
   (load-palette "699fad3a708e2b454f111215151d1a1d3230314e3f4f5d429a9f87ede6cbf5d893e8b26fb6834c704d2b40231e151015")
-  (global WIDTH 240)
-  (global HEIGHT 136)
-  (spawn-enemy :simple-fish)
+
+  (global +width+ 240.0)
+  (global +height+ 136.0)
+
+  (global *dt* 0.0)
+  (global *previous-time* (time))
+
   (global *game-state* "menu"))
 
 (global TIC ; Function called once every frame
   (fn []
+    ;; Calculate delta time
+    (global *dt* (/ (- (time) *previous-time*) 1000.0))
+    (global *previous-time* (time))
+
     (if
       (= *game-state* "menu")
       (update-menu)
