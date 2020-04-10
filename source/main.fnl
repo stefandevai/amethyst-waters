@@ -23,27 +23,13 @@
 (fn math.round [n]
   (math.floor (+ n 0.5)))
 
-;;; Gets the index of an element in a vector
-;(fn index-of [element vector]
-  ;(var element-index 1)
-  ;(each [index value (pairs vector)]
-    ;(when (= value element)
-          ;(do (set element-index index)
-              ;(lua :break))))
-  ;element-index)
-
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Animation                                                                                    ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
 ;; Gets next frame for the frames of an animation
 (fn get-next-index [animation-length current-index]
-  ;(trace current-index)
-
-  (let [next-index (+ current-index 1)]
-    (if (> next-index animation-length)
-        1
-        next-index)))
+  (+ 1 (% current-index animation-length)))
 
 (fn get-animation-frame [animator]
   (. (. animator.animations animator.current-animation) animator.current-index))
