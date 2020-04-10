@@ -6,11 +6,13 @@
 # SOURCE_DIR:    Directory to which the lua output file will be placed
 # OUT_FILE:      Name of the output lua file
 # BUILD_DIR:     Directory for the build files
+# DATA_FILE:     File containing sprite, map and palette data for TIC-80
 
 SOURCE_FILES=(utils.fnl main.fnl)
 SOURCE_DIR=source
 OUT_FILE=game.lua
 BUILD_DIR=build
+DATA_FILE=data.lua
 
 # Compiles all source Fennel files to a single Lua file
 # -----------------------------------------------------
@@ -26,6 +28,7 @@ compile()
   done
 
   fennel --compile $BUILD_DIR/out.fnl > $BUILD_DIR/$OUT_FILE
+  cat $DATA_FILE >> $BUILD_DIR/$OUT_FILE
 }
 
 # Runs the compiled lua file with TIC-80
