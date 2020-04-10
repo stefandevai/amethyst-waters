@@ -6,7 +6,9 @@
   (fn []
     (if (btn 2) (set p.vx -1)
       (btn 3) (set p.vx 1)
-      (set p.vx 0))
+      (btn 1) (set p.vy 1)
+      (btn 0) (set p.vy -1)
+      (do (set p.vx 0) (set p.vy 0)))
 
     (set p.x (+ p.x p.vx))
     (set p.y (+ p.y p.vy))
