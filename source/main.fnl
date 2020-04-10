@@ -1,14 +1,24 @@
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Utils                                                                                        ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
+;; Returns true if the object is outsite the screen boundaries
 (fn out-of-bounds? [object]
   (or (< object.x 0)
       (< object.y 0)
       (> (+ object.x object.w) WIDTH)
       (> (+ object.y object.h) HEIGHT)))
 
+;; Shortcut for math.random
 (fn r [a b]
   (math.random a b))
+
+;; Returns true if objects a and b collide
+(fn collide? [a b]
+  (and (< a.x (+ b.x b.w))
+       (> (+ a.x a.w) b.x)
+       (< a.y (+ b.y b.h))
+       (> (+ a.y a.h) b.y)))
+
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Shots                                                                                        ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
@@ -35,6 +45,7 @@
          :w 8   :h 8
          :vx 0  :vy 0
          :shots []
+         :health 100
        })
 
 ;; Updates player and player's shots
@@ -84,6 +95,10 @@
                 (tset shot-obj :y (+ self.y 4))
                 (table.insert self.shots (+ (length self.shots) 1) shot-obj))))
 
+;; Destroys shot with a certain index from *player*.shots
+(fn destroy-shot [index]
+  (table.remove *player*.shots index))
+
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Enemies                                                                                      ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
@@ -96,8 +111,8 @@
 
 ;; Spawns a single enemy given a type and an optional y position value
 (fn spawn-enemy [type ?y]
-  (let [enemy (if (= type :simple-fish) { :w 8 :h 8 :speed 2 }
-               (= type :stronger-fish) { :w 8 :h 8 :speed 2 })]
+  (let [enemy (if (= type :simple-fish) { :w 8 :h 8 :speed 2 :damage 1 }
+               (= type :stronger-fish)  { :w 8 :h 8 :speed 2 :damage 2 })]
     
     (tset enemy :type type)
     (tset enemy :x (+ WIDTH 8))
@@ -106,14 +121,26 @@
         (tset enemy :y ?y))
     (table.insert *enemy-pool* enemy)))
 
+;; Destroy enemy with a certain index from *enemy-pool*
+(fn destroy-enemy [index]
+  (table.remove *enemy-pool* index))
+
+
 (fn update-enemies []
   ;; Update enemy position
   (each [index enemy (pairs *enemy-pool*)]
     (set enemy.x (- enemy.x enemy.speed))
     (spr (. *enemy-types* enemy.type) enemy.x enemy.y 0)
 
+
+    (when (collide? *player* enemy) (tset *player* :health (- *player*.health enemy.damage)))
+
+    (each [shot-index shot (pairs *player*.shots)]
+      (when (collide? shot enemy) (do (destroy-enemy index)
+                                      (destroy-shot shot-index))))
+
     ;; Destroy enemy if it's to the left of the screen
-    (when (< (+ enemy.x enemy.w) 0) (table.remove *enemy-pool* index))))
+    (when (< (+ enemy.x enemy.w) -8) (destroy-enemy index))))
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Game                                                                                         ;;;
@@ -123,11 +150,15 @@
   (when (btnp 5)
     (spawn-enemy :simple-fish)))
 
+(fn update-hud []
+  (print (.. "Energy: "*player*.health) (* 12 8) 8 2))
+
 (fn update-game []
   (cls 3)
   (update-enemies)
   (*player*:update)
-  (update-game-debug))
+  (update-game-debug)
+  (update-hud))
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Menu                                                                                         ;;;
