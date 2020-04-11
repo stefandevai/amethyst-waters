@@ -81,7 +81,7 @@
 
 ;; Player table object
 (global *player* {
-         :x 120 :y 68
+         :x 40 :y 68
          :w 8   :h 8
          :vx 0  :vy 0
          :shots []
@@ -159,6 +159,12 @@
 
 (global *simple-fish* { :w 8.0 :h 8.0 :speed 50.0 :damage 2.0 })
 
+;; Modyfies position according to a function
+(tset *simple-fish*
+      :pos-modifier
+      (fn [self]
+        (set self.y (+ self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y))))))))
+
 (tset *simple-fish*
       :animator {
         :current-animation :moving
@@ -194,6 +200,7 @@
   (each [index enemy (pairs *enemy-pool*)]
     (set enemy.x (- enemy.x (* enemy.speed *dt*)))
 
+    (enemy:pos-modifier)
     (animate enemy)
     (spr (get-animation-frame enemy.animator) enemy.x enemy.y 0)
 
@@ -217,7 +224,7 @@
     (spawn-enemy :simple-fish)))
 
 (fn draw-hud []
-  (print (.. "Energy: " *player*.health) (* 12 8) 8 12))
+  (print (.. "Energy: " *player*.health) 8 8 12))
 
 (fn update-bg []
   (cls)
@@ -287,5 +294,5 @@
   (fn [row]
     (when
       (= *game-state* "game") 
-      (poke 0x3ff9 (- (% (* 1 *tick*) 240) 113)))))
+      (poke 0x3ff9 (- (% (* 0.2 *tick*) 240) 113)))))
 
