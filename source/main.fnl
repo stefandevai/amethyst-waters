@@ -1,6 +1,7 @@
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Utils                                                                                        ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
+
 ;; Returns true if the object is outsite the screen boundaries
 (fn out-of-bounds? [object]
   (or (< object.x 0)
@@ -22,6 +23,19 @@
 ;; Rounds a float number to its closest integer
 (fn math.round [n]
   (math.floor (+ n 0.5)))
+
+;; Depp copies a table
+(fn deepcopy [orig]
+  (var orig-type (type orig))
+  (var copy nil)
+  
+  (if (= orig-type "table")
+      (do (set copy {})
+          (each [key value (pairs orig)]
+            (tset copy (deepcopy key) (deepcopy value)))
+          (setmetatable copy (deepcopy (getmetatable orig))))
+      (set copy orig))
+  copy)
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Animation                                                                                    ;;;
@@ -129,7 +143,7 @@
       :shoot (fn [self]
               (let [shot-obj { :w 5 :h 1 :speed 3 :angle 0 :type :shot-player }]
                 (tset shot-obj :x self.x)
-                (tset shot-obj :y (+ self.y 4))
+                (tset shot-obj :y (+ self.y 4 (r -2 2)))
                 (table.insert self.shots (+ (length self.shots) 1) shot-obj))))
 
 ;; Destroys shot with a certain index from *player*.shots
@@ -143,12 +157,25 @@
 ;; List of enemy types and their respective sprites
 (global *enemy-types* { :simple-fish 3 :stronger-fish 4 })
 
+(global *simple-fish* { :w 8.0 :h 8.0 :speed 50.0 :damage 2.0 })
+
+(tset *simple-fish*
+      :animator {
+        :current-animation :moving
+        :current-index 1
+        :elapsed 0
+        :speed 150
+        :animations {
+          :moving [ 3 4 ]
+        }
+      })
+
 ;; Pool containing all enemies
 (global *enemy-pool* {})
 
 ;; Spawns a single enemy given a type and an optional y position value
 (fn spawn-enemy [type ?y]
-  (let [enemy (if (= type :simple-fish)    { :w 8.0 :h 8.0 :speed 50.0  :damage 2.0 }
+  (let [enemy (if (= type :simple-fish)    (deepcopy *simple-fish*)
                   (= type :stronger-fish)  { :w 8.0 :h 8.0 :speed 100.0 :damage 2.0 })]
     (tset enemy :type type)
     (tset enemy :x (+ +width+ 8.0))
@@ -166,7 +193,9 @@
   ;; Update enemy position
   (each [index enemy (pairs *enemy-pool*)]
     (set enemy.x (- enemy.x (* enemy.speed *dt*)))
-    (spr (. *enemy-types* enemy.type) enemy.x enemy.y 0)
+
+    (animate enemy)
+    (spr (get-animation-frame enemy.animator) enemy.x enemy.y 0)
 
     ;; Deal with player-enemy collision
     (when (collide? *player* enemy) (tset *player* :health (- *player*.health enemy.damage)))
