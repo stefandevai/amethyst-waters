@@ -67,7 +67,7 @@
 
 ;; Generate first walls
 (fn init-cave-walls []
-  (for [i 0 30 1]
+  (for [i 0 60 1]
     (let [h (snoise)]
       ;; Set bottom walls
       (mset i (- 16 h) 136)
@@ -280,6 +280,9 @@
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
 (fn update-game-debug []
+  (when (= (% *tick* 30) 0)
+    (spawn-enemy :simple-fish))
+
   (when (btnp 5)
     (spawn-enemy :simple-fish)))
 
@@ -288,7 +291,14 @@
 
 (fn update-bg []
   (cls)
-  (map 0 0 240 136 *cam*.x *cam*.y))
+  (local txcam (// (math.abs *cam*.x) 8))
+  (local tycam (// (math.abs *cam*.y) 8))
+  ;(map txcam tycam 30 17 *cam*.x *cam*.y))
+  ;(trace *cam*.x)
+  ;(trace (- 0 (% (math.abs *cam*.x) 8)))
+  ;(trace txcam)
+  ;(map txcam tycam 30 17 (- (% *cam*.x 8) 0) (- (% *cam*.y 8) 0)))
+  (map txcam tycam 31 17 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8))))
 
 (fn draw-game []
   (update-enemies)
@@ -296,6 +306,7 @@
   (draw-hud))
 
 (fn update-game []
+  (set *cam*.x (- *cam*.x (* 5 *dt*)))
   (*player*:update)
   (update-game-debug))
 
@@ -336,7 +347,6 @@
     (global *dt* (/ (- (time) *previous-time*) 1000.0))
     (global *previous-time* (time))
     (global *tick* (+ *tick* 1))
-    (set *cam*.x (- *cam*.x (* 20 *dt*)))
 
     (if
       (= *game-state* "menu")
