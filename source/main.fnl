@@ -52,6 +52,42 @@
   copy)
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
+;;; Perlin noise                                                                                 ;;;
+;;; -------------------------------------------------------------------------------------------- ;;;
+;; Source: https://gist.github.com/AnastasiaDunbar/d1ec3f0f678a00ddc5947b1a3fdd10ea 
+
+(fn mix [a b t] (+ (* t (- b a)) a))
+;(fn mod [a b] (% (+ (% a b) b) b))
+(fn fract [x] (- x (math.floor x)))
+(fn clamp [a b c] (math.min (math.max a b) c))
+(fn sign [x] (if (> x 0) 1 (< x 0) -1 0))
+;(fn pow2 [a b] (* (math.pow (math.abs a) b) (sign a)))
+(fn dot [a b]
+  (var s 0)
+  (for [i 1 (length a) 1]
+    (set s (+ s (* (. a i) (. b i)))))
+  s)
+
+(global seed
+  { :a (r 500 10000)
+    :fx (r 500 10000)
+    :fy (r 500 10000)
+    :px (/ (r -500 500) 1000)
+    :py (/ (r -500 500) 1000)})
+
+(fn pseudor [x y] (fract (* (math.sin (dot [(+ x seed.px) (+ y seed.py)] [seed.fx seed.fy])) seed.a)))
+
+(fn perlin [x y]
+  (mix (mix (pseudor (math.floor x) (math.floor y))
+            (pseudor (+ (math.floor x) 1) (math.floor y))
+            (fract x))
+       (mix (pseudor (math.floor x) (+ (math.floor y)))
+            (pseudor (+ (math.floor x)) (+ (math.floor y)))
+            (fract x))
+       (fract y)))
+
+
+;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Cave walls                                                                                   ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
@@ -59,16 +95,16 @@
 (global ymin 0)
 
 ;; Maximum height of a wall
-(global ymax 3)
+(global ymax 6)
 
-;; Simple noise
-(fn snoise [x y]
-  (r ymin ymax))
+;; Perlin noise
+(fn pn [y]
+  (math.ceil (+ ymin (*  (perlin y ymax) (- ymax ymin)))))
 
 ;; Generate first walls
 (fn init-cave-walls []
   (for [i 0 60 1]
-    (let [h (snoise)]
+    (let [h (pn i)]
       ;; Set bottom walls
       (mset i (- 16 h) 136)
       (for [j (- 17 h) 16 1]
@@ -280,7 +316,7 @@
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
 (fn update-game-debug []
-  (when (= (% *tick* 30) 0)
+  (when (and (> *tick* 30) (= (% *tick* 60) 0))
     (spawn-enemy :simple-fish))
 
   (when (btnp 5)
@@ -293,11 +329,6 @@
   (cls)
   (local txcam (// (math.abs *cam*.x) 8))
   (local tycam (// (math.abs *cam*.y) 8))
-  ;(map txcam tycam 30 17 *cam*.x *cam*.y))
-  ;(trace *cam*.x)
-  ;(trace (- 0 (% (math.abs *cam*.x) 8)))
-  ;(trace txcam)
-  ;(map txcam tycam 30 17 (- (% *cam*.x 8) 0) (- (% *cam*.y 8) 0)))
   (map txcam tycam 31 17 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8))))
 
 (fn draw-game []
@@ -306,7 +337,7 @@
   (draw-hud))
 
 (fn update-game []
-  (set *cam*.x (- *cam*.x (* 5 *dt*)))
+  (set *cam*.x (- *cam*.x (* 20 *dt*)))
   (*player*:update)
   (update-game-debug))
 
