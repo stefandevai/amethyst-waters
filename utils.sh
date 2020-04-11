@@ -8,7 +8,7 @@
 # BUILD_DIR:     Directory for the build files
 # DATA_FILE:     File containing sprite, map and palette data for TIC-80
 
-SOURCE_FILES=(utils.fnl main.fnl)
+SOURCE_FILES=(main.fnl)
 SOURCE_DIR=source
 OUT_FILE=game.lua
 BUILD_DIR=build

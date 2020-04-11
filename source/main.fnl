@@ -86,7 +86,7 @@
         }
       })
 
-;; Updates player and player's shots
+;; Updates player and player's shots (called on TIC)
 (tset *player*
       :update (fn [self]
                 ;; Movement
@@ -109,20 +109,18 @@
                 (if (> (+ self.x self.w) +width+) (set self.x (- +width+ self.w))
                   (< self.x 0) (set self.x 0))
                 (if (> (+ self.y self.h) +height+) (set self.y (- +height+ self.h))
-                  (< self.y 0) (set self.y 0))
+                  (< self.y 0) (set self.y 0))))
 
-                ;; Update shots
-                (each [index shot (pairs self.shots)]
-                  (let [should-delete? (update-shot shot)]
-                    (draw-shot shot)
-                    (when should-delete? (table.remove self.shots index))))
 
-                ;; Drawing
-                (self:draw)))
-
-;; Draws player
+;; Draws player (called on OVR)
 (tset *player*
       :draw (fn [self]
+              ;; Update/draw shots
+              (each [index shot (pairs self.shots)]
+                (let [should-delete? (update-shot shot)]
+                  (draw-shot shot)
+                  (when should-delete? (table.remove self.shots index))))
+
               (animate self)
               (spr (get-animation-frame self.animator) self.x self.y 0)))
 
@@ -189,24 +187,30 @@
   (when (btnp 5)
     (spawn-enemy :simple-fish)))
 
-(fn update-hud []
-  (print (.. "Energy: "*player*.health) (* 12 8) 8 2))
+(fn draw-hud []
+  (print (.. "Energy: " *player*.health) (* 12 8) 8 12))
+
+(fn update-bg []
+  (cls)
+  (map))
+
+(fn draw-game []
+  (update-enemies)
+  (*player*:draw)
+  (draw-hud))
 
 (fn update-game []
-  (cls 3)
-  (update-enemies)
   (*player*:update)
-  (update-game-debug)
-  (update-hud))
+  (update-game-debug))
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Menu                                                                                         ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
 (fn update-menu []
-  (cls 3)
-  (print "AQUATICOS" (* 12 8) (* 3 8) 2)
-  (print "Press A to play the game" (* 7 8) (* 12 8) 2)
+  (cls)
+  (print "AQUATICOS" (* 12 8) (* 3 8) 12)
+  (print "Press A to play the game" (* 7 8) (* 12 8) 12)
   (when (btnp 4)
     (global *game-state* "game")))
 
@@ -215,13 +219,14 @@
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
 (fn init []
-  (load-palette "699fad3a708e2b454f111215151d1a1d3230314e3f4f5d429a9f87ede6cbf5d893e8b26fb6834c704d2b40231e151015")
+  ;(load-palette "699fad3a708e2b454f111215151d1a1d3230314e3f4f5d429a9f87ede6cbf5d893e8b26fb6834c704d2b40231e151015")
 
   (global +width+ 240.0)
   (global +height+ 136.0)
 
   (global *dt* 0.0)
   (global *previous-time* (time))
+  (global *tick* 0)
 
   (global *game-state* "menu"))
 
@@ -230,13 +235,28 @@
     ;; Calculate delta time
     (global *dt* (/ (- (time) *previous-time*) 1000.0))
     (global *previous-time* (time))
+    (global *tick* (+ *tick* 1))
+    (sync 32)
 
     (if
       (= *game-state* "menu")
       (update-menu)
 
+      (= *game-state* "game")
+      (do (update-bg)
+          (update-game)))))
+
+(global OVR ; Function called once every frame and called after TIC
+  (fn []
+    (when
       (= *game-state* "game") 
-      (update-game))))
+      (draw-game))))
 
 (init)
+
+(global scanline
+  (fn [row]
+    (when
+      (= *game-state* "game") 
+      (poke 0x3ff9 (- (% (* 1 *tick*) 240) 113)))))
 
