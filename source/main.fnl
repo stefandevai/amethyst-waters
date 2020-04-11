@@ -86,6 +86,15 @@
             (fract x))
        (fract y)))
 
+(fn perlinf [x y]
+  (local iterations 4)
+  (var sum 0)
+  (for [i 0 iterations 1]
+    (set seed.a (+ 500 (* (fract (math.sin (* (+ i 0.512) 512 725.63))) 1000)))
+    (set sum (+ sum (perlin (* x (+ i 1)) (* y (+ i 1))))))
+  (trace sum)
+  (trace iterations)
+  (/ sum iterations))
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Cave walls                                                                                   ;;;
@@ -99,10 +108,14 @@
 
 ;; Perlin noise
 (fn pn [y]
-  (math.ceil (+ ymin (*  (perlin y ymax) (- ymax ymin)))))
+  (math.ceil (+ ymin (*  (perlinf y ymax) (- ymax ymin)))))
 
-;; Generate first walls
-(fn init-cave-walls []
+;; Simple noise
+(fn sn [y]
+  (r ymin ymax))
+
+;; Generate cave walls
+(fn generate-cave-walls []
   (for [i 0 60 1]
     (let [h (pn i)]
       ;; Set bottom walls
@@ -368,7 +381,7 @@
 
   (global *cam* { :x 0 :y 0 })
 
-  (init-cave-walls)
+  (generate-cave-walls)
 
   (global *game-state* "menu"))
 
