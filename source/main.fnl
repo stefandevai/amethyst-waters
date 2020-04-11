@@ -14,11 +14,25 @@
   (math.random a b))
 
 ;; Returns true if objects a and b collide
-(fn collide? [a b]
+(fn bcollides? [a b]
   (and (< a.x (+ b.x b.w))
        (> (+ a.x a.w) b.x)
        (< a.y (+ b.y b.h))
        (> (+ a.y a.h) b.y)))
+
+;; Returns true if a object collides with a tile in the map
+(fn mcollides? [x y w h]
+  (or (> (mget (// x 8) (// y 8)) 127)
+      (> (mget (// (+ x w) 8) (// y 8)) 127)
+      (> (mget (// x 8) (// (+ y h) 8)) 127)
+      (> (mget (// (+ x w) 8) (// (+ y h) 8)) 127)))
+
+;; Returns map collisions in a body
+(fn mcollisions [x y w h]
+  (values (> (mget (// x 8) (// y 8)) 127)
+          (> (mget (// (+ x w) 8) (// y 8)) 127)
+          (> (mget (// x 8) (// (+ y h) 8)) 127)
+          (> (mget (// (+ x w) 8) (// (+ y h) 8)) 127)))
 
 ;; Rounds a float number to its closest integer
 (fn math.round [n]
@@ -41,27 +55,29 @@
 ;;; Cave walls                                                                                   ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
-;; Minimum height of wall
+;; Minimum height of a wall
 (global ymin 0)
 
-;; Maximum height of wall
-(global ymax 7)
+;; Maximum height of a wall
+(global ymax 3)
 
+;; Simple noise
 (fn snoise [x y]
   (r ymin ymax))
 
+;; Generate first walls
 (fn init-cave-walls []
   (for [i 0 30 1]
     (let [h (snoise)]
       ;; Set bottom walls
-      (mset i (- 16 h) 24)
+      (mset i (- 16 h) 136)
       (for [j (- 17 h) 16 1]
-        (mset i j 16))
+        (mset i j 128))
       
       ;; Set top walls
-      (mset i (- ymax h) 23)
+      (mset i (- ymax h) 135)
       (for [j 0 (- ymax 1 h) 1]
-        (mset i j 16)))))
+        (mset i j 128)))))
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Animation                                                                                    ;;;
@@ -136,6 +152,24 @@
                 (when (btn 3) (set self.vx 1))
                 (when (btn 1) (set self.vy 1))
                 (when (btn 0) (set self.vy -1))
+
+                ;; Map collision
+                (let [fx (- (+ self.x self.vx) *cam*.x)
+                      fy (- (+ self.y self.vy) *cam*.y)]
+                  (when (mcollides? fx fy self.w self.h)
+                    (set self.vx 0)
+                    (set self.vy 0)))
+                        ;(do (let [(tl tr bl br) (mcollisions fx fy self.w self.h)]
+                             ;(trace (.. "tl " (tostring tl)))
+                             ;(trace (.. "tr " (tostring tr)))
+                             ;(trace (.. "bl " (tostring bl)))
+                             ;(trace (.. "br " (tostring br)))
+                             ;(trace "end")
+                             
+                             ;(when (and (< self.vx 0) (or tl bl)) (set self.vx 0))
+                             ;(when (and (> self.vx 0) (or tr br)) (set self.vx 0))
+                             ;(when (and (< self.vy 0) (or tl tr)) (set self.vy 0))
+                             ;(when (and (> self.vy 0) (or bl br)) (set self.vy 0))))))
 
                 ;; Shoot if Z is pressed
                 (when (btnp 4)
@@ -231,11 +265,11 @@
     (spr (get-animation-frame enemy.animator) enemy.x enemy.y 0)
 
     ;; Deal with player-enemy collision
-    (when (collide? *player* enemy) (tset *player* :health (- *player*.health enemy.damage)))
+    (when (bcollides? *player* enemy) (tset *player* :health (- *player*.health enemy.damage)))
 
     ;; Deal with shot-enemy collision
     (each [shot-index shot (pairs *player*.shots)]
-      (when (collide? shot enemy) (do (destroy-enemy index)
+      (when (bcollides? shot enemy) (do (destroy-enemy index)
                                       (destroy-shot shot-index))))
 
     ;; Destroy enemy if it's to the left of the screen
@@ -254,7 +288,7 @@
 
 (fn update-bg []
   (cls)
-  (map))
+  (map 0 0 240 136 *cam*.x *cam*.y))
 
 (fn draw-game []
   (update-enemies)
@@ -290,6 +324,8 @@
   (global *previous-time* (time))
   (global *tick* 0)
 
+  (global *cam* { :x 0 :y 0 })
+
   (init-cave-walls)
 
   (global *game-state* "menu"))
@@ -300,7 +336,7 @@
     (global *dt* (/ (- (time) *previous-time*) 1000.0))
     (global *previous-time* (time))
     (global *tick* (+ *tick* 1))
-    (sync 32)
+    (set *cam*.x (- *cam*.x (* 20 *dt*)))
 
     (if
       (= *game-state* "menu")
