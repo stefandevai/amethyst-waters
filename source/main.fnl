@@ -38,6 +38,32 @@
   copy)
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
+;;; Cave walls                                                                                   ;;;
+;;; -------------------------------------------------------------------------------------------- ;;;
+
+;; Minimum height of wall
+(global ymin 0)
+
+;; Maximum height of wall
+(global ymax 7)
+
+(fn snoise [x y]
+  (r ymin ymax))
+
+(fn init-cave-walls []
+  (for [i 0 30 1]
+    (let [h (snoise)]
+      ;; Set bottom walls
+      (mset i (- 16 h) 24)
+      (for [j (- 17 h) 16 1]
+        (mset i j 16))
+      
+      ;; Set top walls
+      (mset i (- ymax h) 23)
+      (for [j 0 (- ymax 1 h) 1]
+        (mset i j 16)))))
+
+;;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Animation                                                                                    ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
@@ -264,6 +290,8 @@
   (global *previous-time* (time))
   (global *tick* 0)
 
+  (init-cave-walls)
+
   (global *game-state* "menu"))
 
 (global TIC ; Function called once every frame
@@ -290,9 +318,9 @@
 
 (init)
 
-(global scanline
-  (fn [row]
-    (when
-      (= *game-state* "game") 
-      (poke 0x3ff9 (- (% (* 0.2 *tick*) 240) 113)))))
+;(global scanline
+  ;(fn [row]
+    ;(when
+      ;(= *game-state* "game") 
+      ;(poke 0x3ff9 (- (% (* 0.2 *tick*) 240) 113)))))
 
