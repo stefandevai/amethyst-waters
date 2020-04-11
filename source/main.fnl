@@ -13,6 +13,9 @@
 (fn r [a b]
   (math.random a b))
 
+;; Returns sign of a number
+(fn sign [x] (if (> x 0) 1 (< x 0) -1 0))
+
 ;; Returns true if objects a and b collide
 (fn bcollides? [a b]
   (and (< a.x (+ b.x b.w))
@@ -22,17 +25,73 @@
 
 ;; Returns true if a object collides with a tile in the map
 (fn mcollides? [x y w h]
-  (or (> (mget (// x 8) (// (+ y 1) 8)) 127)                             ; top-left
-      (> (mget (// (+ x (- w 1)) 8) (// (+ y 1) 8)) 127)                 ; top-right
+  (or (> (mget (// x 8) (// y 8)) 127)                       ; top-left
+      (> (mget (// (+ x (- w 1)) 8) (// y 8)) 127)           ; top-right
       (> (mget (// x 8) (// (+ y (- h 1)) 8)) 127)                 ; bottom-left
       (> (mget (// (+ x (- w 1)) 8) (// (+ y (- h 1)) 8)) 127)))   ; bottom-right
 
 ;; Returns map collisions in a body
-(fn mcollisions [x y w h]
-  (values (> (mget (// x 8) (// y 8)) 127)
-          (> (mget (// (+ x w) 8) (// y 8)) 127)
-          (> (mget (// x 8) (// (+ y h) 8)) 127)
-          (> (mget (// (+ x w) 8) (// (+ y h) 8)) 127)))
+(fn mcollisions [obj]
+  (let [x (- (+ obj.x obj.vx) *cam*.x)
+        y (- (+ obj.y obj.vy) *cam*.y)
+        w obj.w
+        h obj.h]
+   (values (> (mget (// x 8) (// y 8)) 127)                       ; top-left
+           (> (mget (// (+ x (- w 1)) 8) (// y 8)) 127)           ; top-right
+           (> (mget (// x 8) (// (+ y (- h 1)) 8)) 127)                 ; bottom-left
+           (> (mget (// (+ x (- w 1)) 8) (// (+ y (- h 1)) 8)) 127))))  ; bottom-right
+
+;; Resolves collision between an object and the map
+(fn rcollision [obj]
+  (let [(tl tr bl br) (mcollisions obj)]
+   (local ox (- (+ obj.x obj.vx) *cam*.x))
+   (local oy (- (+ obj.y obj.vy) *cam*.y))
+   (local ow (- (+ obj.x obj.vx obj.w) *cam*.x))
+   (local oh (- (+ obj.y obj.vy obj.h) *cam*.y))
+
+   (trace ow)
+   
+   (var sx 0) ; sign of x movement
+   (var sy 0) ; sign of y movement
+   (var ix 0) ; intersection in the x axis
+   (var iy 0) ; intersection in the y axis
+
+   (when (or tr br)
+         (do (set ix (math.abs (- ow (* 8 (// ow 8)))))
+             (set sx -1)))
+   (when (or tl bl)
+         (do (set ix (math.max ix (math.abs (- ox (* 8 (// (+ ox 8) 8))))))
+             (set sx 1)))
+   (when (or br bl)
+         (do (set iy (math.abs (- oh (* (// oh 8) 8))))
+             (set sy -1)))
+   (when (or tr tl)
+         (do (set iy (math.max iy (math.abs (- (* (+ (// oy 8) 1) 8) oy))))
+             (set sy 1)))
+
+   (when (and (= ix 0) (or tl tr bl br)) (set ix 8))
+   (when (and (= iy 0) (or tl tr bl br)) (set iy 8))
+
+   (trace (.. "tl " (tostring tl)))
+   (trace (.. "tr " (tostring tr)))
+   (trace (.. "bl " (tostring bl)))
+   (trace (.. "br " (tostring br)))
+   (trace "sign")
+   (trace sx)
+   (trace sy)
+   (trace "int")
+   (trace ix)
+   (trace iy)
+   ;(trace "obj")
+   ;(trace (- obj.vx (* ix sx)))
+   ;(trace (- obj.vy (* iy sy)))
+   (trace "---------------")
+
+   ;(set obj.vx 0)
+   ;(set obj.vy 0)))
+
+   (when (> iy ix) (set obj.vx (math.ceil (+ obj.vx (* ix sx)))))
+   (when (>= ix iy) (set obj.vy (+ obj.vy (* iy sy))))))
 
 ;; Rounds a float number to its closest integer
 (fn math.round [n]
@@ -60,7 +119,6 @@
 ;(fn mod [a b] (% (+ (% a b) b) b))
 (fn fract [x] (- x (math.floor x)))
 ;(fn clamp [a b c] (math.min (math.max a b) c))
-(fn sign [x] (if (> x 0) 1 (< x 0) -1 0))
 ;(fn pow2 [a b] (* (math.pow (math.abs a) b) (sign a)))
 (fn dot [a b]
   (var s 0)
@@ -206,19 +264,20 @@
                 (let [fx (- (+ self.x self.vx) *cam*.x)
                       fy (- (+ self.y self.vy) *cam*.y)]
                   (when (mcollides? fx fy self.w self.h)
-                    (set self.vx 0)
-                    (set self.vy 0)))
-                        ;(do (let [(tl tr bl br) (mcollisions fx fy self.w self.h)]
-                             ;(trace (.. "tl " (tostring tl)))
-                             ;(trace (.. "tr " (tostring tr)))
-                             ;(trace (.. "bl " (tostring bl)))
-                             ;(trace (.. "br " (tostring br)))
-                             ;(trace "end")
+                    (rcollision self)))
+                    ;(set self.vx 0)
+                    ;(set self.vy 0)))
+                        ;;(do (let [(tl tr bl br) (mcollisions fx fy self.w self.h)]
+                             ;;(trace (.. "tl " (tostring tl)))
+                             ;;(trace (.. "tr " (tostring tr)))
+                             ;;(trace (.. "bl " (tostring bl)))
+                             ;;(trace (.. "br " (tostring br)))
+                             ;;(trace "end")
                              
-                             ;(when (and (< self.vx 0) (or tl bl)) (set self.vx 0))
-                             ;(when (and (> self.vx 0) (or tr br)) (set self.vx 0))
-                             ;(when (and (< self.vy 0) (or tl tr)) (set self.vy 0))
-                             ;(when (and (> self.vy 0) (or bl br)) (set self.vy 0))))))
+                             ;;(when (and (< self.vx 0) (or tl bl)) (set self.vx 0))
+                             ;;(when (and (> self.vx 0) (or tr br)) (set self.vx 0))
+                             ;;(when (and (< self.vy 0) (or tl tr)) (set self.vy 0))
+                             ;;(when (and (> self.vy 0) (or bl br)) (set self.vy 0))))))
 
                 ;; Shoot if Z is pressed
                 (when (btnp 4)
@@ -350,7 +409,7 @@
   (draw-hud))
 
 (fn update-game []
-  ;(set *cam*.x (- *cam*.x (* 20 *dt*)))
+  (set *cam*.x (- *cam*.x (* *cams*.x *dt*)))
   (*player*:update)
   (update-game-debug))
 
@@ -379,6 +438,7 @@
   (global *previous-time* (time))
   (global *tick* 0)
 
+  (global *cams* { :x 20 :y 0 })
   (global *cam* { :x 0 :y 0 })
 
   (generate-cave-walls)
