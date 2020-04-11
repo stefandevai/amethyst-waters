@@ -22,10 +22,10 @@
 
 ;; Returns true if a object collides with a tile in the map
 (fn mcollides? [x y w h]
-  (or (> (mget (// x 8) (// y 8)) 127)
-      (> (mget (// (+ x w) 8) (// y 8)) 127)
-      (> (mget (// x 8) (// (+ y h) 8)) 127)
-      (> (mget (// (+ x w) 8) (// (+ y h) 8)) 127)))
+  (or (> (mget (// x 8) (// (+ y 1) 8)) 127)                             ; top-left
+      (> (mget (// (+ x (- w 1)) 8) (// (+ y 1) 8)) 127)                 ; top-right
+      (> (mget (// x 8) (// (+ y (- h 1)) 8)) 127)                 ; bottom-left
+      (> (mget (// (+ x (- w 1)) 8) (// (+ y (- h 1)) 8)) 127)))   ; bottom-right
 
 ;; Returns map collisions in a body
 (fn mcollisions [x y w h]
@@ -59,7 +59,7 @@
 (fn mix [a b t] (+ (* t (- b a)) a))
 ;(fn mod [a b] (% (+ (% a b) b) b))
 (fn fract [x] (- x (math.floor x)))
-(fn clamp [a b c] (math.min (math.max a b) c))
+;(fn clamp [a b c] (math.min (math.max a b) c))
 (fn sign [x] (if (> x 0) 1 (< x 0) -1 0))
 ;(fn pow2 [a b] (* (math.pow (math.abs a) b) (sign a)))
 (fn dot [a b]
@@ -92,8 +92,6 @@
   (for [i 0 iterations 1]
     (set seed.a (+ 500 (* (fract (math.sin (* (+ i 0.512) 512 725.63))) 1000)))
     (set sum (+ sum (perlin (* x (+ i 1)) (* y (+ i 1))))))
-  (trace sum)
-  (trace iterations)
   (/ sum iterations))
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
@@ -104,28 +102,30 @@
 (global ymin 0)
 
 ;; Maximum height of a wall
-(global ymax 6)
+(global ymax 4)
 
 ;; Perlin noise
 (fn pn [y]
   (math.ceil (+ ymin (*  (perlinf y ymax) (- ymax ymin)))))
 
 ;; Simple noise
-(fn sn [y]
-  (r ymin ymax))
+;(fn sn [y]
+  ;(r ymin ymax))
 
 ;; Generate cave walls
 (fn generate-cave-walls []
-  (for [i 0 60 1]
-    (let [h (pn i)]
+  (local dspl (r 3 100)) ; Displacement factor
+  (for [i 0 230 1]
+    (let [h (pn i)
+          h2 (pn (+ i dspl))]
       ;; Set bottom walls
       (mset i (- 16 h) 136)
       (for [j (- 17 h) 16 1]
         (mset i j 128))
       
       ;; Set top walls
-      (mset i (- ymax h) 135)
-      (for [j 0 (- ymax 1 h) 1]
+      (mset i (- ymax (- h2 2)) 135)
+      (for [j 0 (- ymax (- h2 1)) 1]
         (mset i j 128)))))
 
 ;;; -------------------------------------------------------------------------------------------- ;;;
@@ -350,7 +350,7 @@
   (draw-hud))
 
 (fn update-game []
-  (set *cam*.x (- *cam*.x (* 20 *dt*)))
+  ;(set *cam*.x (- *cam*.x (* 20 *dt*)))
   (*player*:update)
   (update-game-debug))
 
