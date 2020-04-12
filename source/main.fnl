@@ -49,7 +49,6 @@
    (local ow (- (+ obj.x obj.vx obj.w) (math.ceil *cam*.x)))
    (local oh (- (+ obj.y obj.vy obj.h) *cam*.y))
 
-   (var sx 0) ; sign of x movement
    (var sy 0) ; sign of y movement
    (var ix 0) ; intersection in the x axis
    (var iy 0) ; intersection in the y axis
@@ -62,11 +61,10 @@
 
    ;; Calculate intersections
    (if (or tr br)
-         (do (set ix (math.abs (- ow (* 8 (// ow 8)))))
-             (set sx -1))
+       (set ix (math.abs (- ow (* 8 (// ow 8)))))
        (or tl bl)
-             (do (set ix (math.abs (- ox (* 8 (// (+ ox 8) 8)))))
-                 (set sx 1)))
+       (set ix (math.abs (- ox (* 8 (// (+ ox 8) 8))))))
+
    (if (or br bl)
          (do (set iy (math.abs (- oh (* (// oh 8) 8))))
              (set sy -1))
@@ -265,7 +263,7 @@
                   (set fy (- (+ self.y self.vy) *cam*.y)))
 
                 ;; Shoot if Z is pressed
-                (when (btnp 4)
+                (when (btnp 4 10 10)
                   (self:shoot))
 
                 ;; Positioning
