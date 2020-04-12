@@ -1,4 +1,4 @@
-;;; -------------------------------------------------------------------------------------------- ;;;
+;; -------------------------------------------------------------------------------------------- ;;;
 ;;; Utils                                                                                        ;;;
 ;;; -------------------------------------------------------------------------------------------- ;;;
 
@@ -32,7 +32,7 @@
 
 ;; Returns map collisions in a body
 (fn mcollisions [obj]
-  (let [x (- (+ obj.x obj.vx) *cam*.x)
+  (let [x (- (+ obj.x obj.vx) (math.ceil *cam*.x))
         y (- (+ obj.y obj.vy) *cam*.y)
         w obj.w
         h obj.h]
@@ -44,54 +44,48 @@
 ;; Resolves collision between an object and the map
 (fn rcollision [obj]
   (let [(tl tr bl br) (mcollisions obj)]
-   (local ox (- (+ obj.x obj.vx) *cam*.x))
-   (local oy (- (+ obj.y obj.vy) *cam*.y))
-   (local ow (- (+ obj.x obj.vx obj.w) *cam*.x))
+   (local ox (- (+ obj.x obj.vx) (math.ceil *cam*.x)))
+   (local oy (- (+ obj.y obj.vy) (math.ceil *cam*.y)))
+   (local ow (- (+ obj.x obj.vx obj.w) (math.ceil *cam*.x)))
    (local oh (- (+ obj.y obj.vy obj.h) *cam*.y))
 
-   (trace ow)
-   
    (var sx 0) ; sign of x movement
    (var sy 0) ; sign of y movement
    (var ix 0) ; intersection in the x axis
    (var iy 0) ; intersection in the y axis
+   (var in 0) ; number of sides with intersection
 
-   (when (or tr br)
+   (when tl (set in (+ in 1)))
+   (when tr (set in (+ in 1)))
+   (when bl (set in (+ in 1)))
+   (when br (set in (+ in 1)))
+
+   ;; Calculate intersections
+   (if (or tr br)
          (do (set ix (math.abs (- ow (* 8 (// ow 8)))))
-             (set sx -1)))
-   (when (or tl bl)
-         (do (set ix (math.max ix (math.abs (- ox (* 8 (// (+ ox 8) 8))))))
-             (set sx 1)))
-   (when (or br bl)
+             (set sx -1))
+       (or tl bl)
+             (do (set ix (math.abs (- ox (* 8 (// (+ ox 8) 8)))))
+                 (set sx 1)))
+   (if (or br bl)
          (do (set iy (math.abs (- oh (* (// oh 8) 8))))
-             (set sy -1)))
-   (when (or tr tl)
-         (do (set iy (math.max iy (math.abs (- (* (+ (// oy 8) 1) 8) oy))))
-             (set sy 1)))
+             (set sy -1))
+       (or tr tl)
+             (do (set iy (math.abs (- (* (+ (// oy 8) 1) 8) oy)))
+                 (set sy 1)))
 
+   ;; When intersection is 100%
    (when (and (= ix 0) (or tl tr bl br)) (set ix 8))
    (when (and (= iy 0) (or tl tr bl br)) (set iy 8))
 
-   (trace (.. "tl " (tostring tl)))
-   (trace (.. "tr " (tostring tr)))
-   (trace (.. "bl " (tostring bl)))
-   (trace (.. "br " (tostring br)))
-   (trace "sign")
-   (trace sx)
-   (trace sy)
-   (trace "int")
-   (trace ix)
-   (trace iy)
-   ;(trace "obj")
-   ;(trace (- obj.vx (* ix sx)))
-   ;(trace (- obj.vy (* iy sy)))
-   (trace "---------------")
-
-   ;(set obj.vx 0)
-   ;(set obj.vy 0)))
-
-   (when (> iy ix) (set obj.vx (math.ceil (+ obj.vx (* ix sx)))))
-   (when (>= ix iy) (set obj.vy (+ obj.vy (* iy sy))))))
+   ;; Resolve collisions
+   (if (and (or tl tr) (> ix iy)) (set obj.vy (+ obj.vy iy)) ; top
+       (and (or br tr) (> iy ix)) (set obj.vx (- obj.vx ix)) ; right
+       (and (or bl br) (> ix iy)) (set obj.vy (- obj.vy iy)) ; bottom
+       (and (or tl bl) (> iy ix)) (set obj.vx (+ obj.vx ix)) ; left
+       (and (> in 2) (= iy ix)) (do (set obj.vx 0) (set obj.vy 0)) ; 3+ sides colliding
+       (and (= iy ix)) (do (set obj.vy (+ obj.vy (* iy sy)))) ; border 1px x 1px collision
+       (do (trace "here") (set obj.vx 0) (set obj.vy 0))))) 
 
 ;; Rounds a float number to its closest integer
 (fn math.round [n]
@@ -261,23 +255,14 @@
                 (when (btn 0) (set self.vy -1))
 
                 ;; Map collision
-                (let [fx (- (+ self.x self.vx) *cam*.x)
-                      fy (- (+ self.y self.vy) *cam*.y)]
-                  (when (mcollides? fx fy self.w self.h)
-                    (rcollision self)))
-                    ;(set self.vx 0)
-                    ;(set self.vy 0)))
-                        ;;(do (let [(tl tr bl br) (mcollisions fx fy self.w self.h)]
-                             ;;(trace (.. "tl " (tostring tl)))
-                             ;;(trace (.. "tr " (tostring tr)))
-                             ;;(trace (.. "bl " (tostring bl)))
-                             ;;(trace (.. "br " (tostring br)))
-                             ;;(trace "end")
-                             
-                             ;;(when (and (< self.vx 0) (or tl bl)) (set self.vx 0))
-                             ;;(when (and (> self.vx 0) (or tr br)) (set self.vx 0))
-                             ;;(when (and (< self.vy 0) (or tl tr)) (set self.vy 0))
-                             ;;(when (and (> self.vy 0) (or bl br)) (set self.vy 0))))))
+                (var fx (- (+ self.x self.vx) (math.ceil *cam*.x)))
+                (var fy (- (+ self.y self.vy) *cam*.y))
+                (var ni 0) ; Number of times we tried to resolve collisions
+                (while (and (< ni 5) (mcollides? fx fy self.w self.h))
+                  (rcollision self)
+                  (set ni (+ ni 1))
+                  (set fx (- (+ self.x self.vx) (math.ceil *cam*.x)))
+                  (set fy (- (+ self.y self.vy) *cam*.y)))
 
                 ;; Shoot if Z is pressed
                 (when (btnp 4)
