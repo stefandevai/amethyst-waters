@@ -356,7 +356,9 @@
     (spr (get-animation-frame enemy.animator) enemy.x enemy.y 0)
 
     ;; Deal with player-enemy collision
-    (when (bcollides? *player* enemy) (tset *player* :health (- *player*.health enemy.damage)))
+    (when (bcollides? *player* enemy)
+      (tset *player* :health (- *player*.health enemy.damage))
+      (global *shake* 10))
 
     ;; Deal with shot-enemy collision
     (each [shot-index shot (pairs *player*.shots)]
@@ -393,6 +395,14 @@
 
 (fn update-game []
   (set *cam*.x (- *cam*.x (* *cams*.x *dt*)))
+
+  ;; Shake screen if receives damage
+  (when (> *shake* 0)
+    (poke 0x3FF9 (r 0 1))
+    (poke (+ 0x3FF9 1) (r 0 1))
+    (global *shake* (- *shake* 1))
+    (when (= *shake* 0) (memset 0x3FF9 0 2)))
+
   (*player*:update)
   (update-game-debug))
 
@@ -426,6 +436,8 @@
 
   (generate-cave-walls)
 
+  (global *shake* 0)
+
   (global *game-state* "menu"))
 
 (global TIC ; Function called once every frame
@@ -441,13 +453,14 @@
 
       (= *game-state* "game")
       (do (update-bg)
-          (update-game)))))
+          (update-game)
+          (draw-game)))))
 
-(global OVR ; Function called once every frame and called after TIC
-  (fn []
-    (when
-      (= *game-state* "game") 
-      (draw-game))))
+;(global OVR ; Function called once every frame and called after TIC
+  ;(fn []
+    ;(when
+      ;(= *game-state* "game") 
+      ;(draw-game))))
 
 (init)
 
