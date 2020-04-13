@@ -212,7 +212,7 @@
   ;; Generate 4 blocks if cam is 2 blocks away from last generated block
   (when (< *last-block-generated* from)
     (global *last-block-generated* from)
-    (when (> from 8) (clear-map-block (% from 8)))
+    (when (> from 7) (clear-map-block (% from 8)))
     (generate-cave-walls (* (% from 8) 30) (- (* (+ (% from 8) 1) 30) 1))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
