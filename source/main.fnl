@@ -184,9 +184,9 @@
   ;(r ymin ymax))
 
 ;; Generate cave walls
-(fn generate-cave-walls []
+(fn generate-cave-walls [from to]
   (local dspl (r 3 100)) ; Displacement factor
-  (for [i 0 230 1]
+  (for [i from to 1]
     (let [h (pn i)
           h2 (pn (+ i dspl))]
       ;; Set bottom walls
@@ -198,6 +198,22 @@
       (mset i (- ymax (- h2 2)) 135)
       (for [j 0 (- ymax (- h2 1)) 1]
         (mset i j 128)))))
+
+;; Sets all map tiles from block to 0
+(fn clear-map-block [block]
+  (for [i (* block 30) (- (* (+ block 1) 30) 1) 1]
+    (for [j 0  16]
+      (mset i j 0))))
+
+;; Generates cave walls if needed
+(fn update-cave-walls []
+  (local current-block (// (math.abs *cam*.x) 240))
+  (local from (+ current-block 1))
+  ;; Generate 4 blocks if cam is 2 blocks away from last generated block
+  (when (< *last-block-generated* from)
+    (global *last-block-generated* from)
+    (when (> from 8) (clear-map-block (% from 8)))
+    (generate-cave-walls (* (% from 8) 30) (- (* (+ (% from 8) 1) 30) 1))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Animation                                                                                    ;;;
@@ -424,6 +440,8 @@
     (spawn-enemy :simple-fish)))
 
 (fn draw-hud []
+  (print (.. "camx " *cam*.x) 8 26 12)
+  (print (.. "lastgen " *last-block-generated*) 8 17 12)
   (print (.. "Energy: " *player*.health) 8 8 12))
 
 (fn draw-game []
@@ -440,6 +458,7 @@
   (draw-hud))
 
 (fn update-game []
+  (update-cave-walls)
   (set *cam*.x (- *cam*.x (* *cams*.x *dt*)))
 
   ;; Shake screen if receives damage
@@ -482,7 +501,8 @@
   (global *cams* { :x 20 :y 0 })
   (global *cam* { :x 0 :y 0 })
 
-  (generate-cave-walls)
+  (global *last-block-generated* 0)
+  (generate-cave-walls 0 29)
 
   (global *shake* 0)
 
