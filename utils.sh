@@ -37,7 +37,7 @@ compile()
 run()
 {
   echo "Running $OUT_FILE with TIC-80..."
-  tic80 $BUILD_DIR/$OUT_FILE
+  tic80 $SOURCE_DIR/main.fnl
 }
 
 # Prints usage instructions

@@ -1,14 +1,18 @@
 #!/bin/env python
 
-with open("build/game.lua", "r") as fp:
-    with open("build/game.min.lua", "w") as fw:
+import re
+
+with open("source/main.fnl", "r") as fp:
+    with open("build/game.min.fnl", "w") as fw:
+        header = open("source/header.fnl", "r").read()
+        fw.write(header)
         line = fp.readline()
         while line:
-            # print(line.strip())
             linestr = line.strip()
-            if linestr[:2] != '--':
-                fw.write(linestr + "\n")
+            if (len(linestr) > 1 or linestr == '}' or linestr == ')') and linestr[:1] != ';':
+                linestr = re.sub(';.*', '', linestr)
+                fw.write(linestr + ' ')
             line = fp.readline()
-        data = open("data.lua", "r").read()
+        data = open("source/data.fnl", "r").read()
         fw.write(data)
 
