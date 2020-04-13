@@ -46,10 +46,10 @@
 
 ;; Returns true if a object collides with a tile in the map
 (fn mcollides? [x y w h]
-  (or (> (mget (// x 8) (// y 8)) 127)                       ; top-left
-      (> (mget (// (+ x (- w 1)) 8) (// y 8)) 127)           ; top-right
-      (> (mget (// x 8) (// (+ y (- h 1)) 8)) 127)                 ; bottom-left
-      (> (mget (// (+ x (- w 1)) 8) (// (+ y (- h 1)) 8)) 127)))   ; bottom-right
+  (or (> (mget (// (% x 1920) 8) (// y 8)) 127)                       ; top-left
+      (> (mget (// (+ (% x 1920) (- w 1)) 8) (// y 8)) 127)           ; top-right
+      (> (mget (// (% x 1920) 8) (// (+ y (- h 1)) 8)) 127)                 ; bottom-left
+      (> (mget (// (+ (% x 1920) (- w 1)) 8) (// (+ y (- h 1)) 8)) 127)))   ; bottom-right
 
 ;; Returns map collisions in a body
 (fn mcollisions [obj]
@@ -57,10 +57,10 @@
         y (- (+ obj.y obj.vy) *cam*.y)
         w obj.w
         h obj.h]
-   (values (> (mget (// x 8) (// y 8)) 127)                       ; top-left
-           (> (mget (// (+ x (- w 1)) 8) (// y 8)) 127)           ; top-right
-           (> (mget (// x 8) (// (+ y (- h 1)) 8)) 127)                 ; bottom-left
-           (> (mget (// (+ x (- w 1)) 8) (// (+ y (- h 1)) 8)) 127))))  ; bottom-right
+  (values (> (mget (// (% x 1920) 8) (// y 8)) 127)                       ; top-left
+          (> (mget (// (+ (% x 1920) (- w 1)) 8) (// y 8)) 127)           ; top-right
+          (> (mget (// (% x 1920) 8) (// (+ y (- h 1)) 8)) 127)                 ; bottom-left
+          (> (mget (// (+ (% x 1920) (- w 1)) 8) (// (+ y (- h 1)) 8)) 127))))  ; bottom-right
 
 ;; Resolves collision between an object and the map
 (fn rcollision [obj]
@@ -173,7 +173,7 @@
 (global ymin 0)
 
 ;; Maximum height of a wall
-(global ymax 1)
+(global ymax 7)
 
 ;; Perlin noise
 (fn pn [y]
@@ -285,6 +285,7 @@
 
                 ;; Shoot if Z is pressed
                 (when (btnp 4 10 10)
+                  ;(sfx 3 50 -1 3 7)
                   (self:shoot))
 
                 ;; Positioning
@@ -405,15 +406,15 @@
 
 ;; Draws cave background with a parallax factor pfactor
 (fn draw-cave-bg [pfactor]
-  (loop-spr 9 0 24 2 3 0.9))
+  (loop-spr 9 120 68 2 3 0.1))
 
 ;; Draws background decoration
 (fn draw-bg []
   (draw-cave-bg 0.8))
 
-;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
-;;; Game                                                                                         ;;;
-;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Game                                                                                       ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (fn update-game-debug []
   (when (and (> *tick* 30) (= (% *tick* 60) 0))
@@ -432,14 +433,14 @@
 
   (local txcam (// (math.abs *cam*.x) 8))
   (local tycam (// (math.abs *cam*.y) 8))
-  ;(map txcam tycam 31 17 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
+  (map txcam tycam 31 17 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
 
   (update-enemies)
   (*player*:draw)
   (draw-hud))
 
 (fn update-game []
-  ;(set *cam*.x (- *cam*.x (* *cams*.x *dt*)))
+  (set *cam*.x (- *cam*.x (* *cams*.x *dt*)))
 
   ;; Shake screen if receives damage
   (when (> *shake* 0)
@@ -479,7 +480,7 @@
   (global *tick* 0)
 
   (global *cams* { :x 20 :y 0 })
-  (global *cam* { :x 20 :y 0 })
+  (global *cam* { :x 0 :y 0 })
 
   (generate-cave-walls)
 
@@ -606,7 +607,7 @@
 ;; 000:6400440024001400040004001400240024003400540064007400840084009400a400b400c400c400c400c400c400c400c400c400c400b400a400a400460000ff0000
 ;; 001:52002200120032005200720082009200b200b200a200a200c200c200c200c200d200d200d200e200e200f200f200f200f200f200f200f200f200f200570000000000
 ;; 002:41000100110021002100310041005100710071007100810091009100a100a100b100b100c100d100d100e100e100e100e100e100e100e100e100e100460000000000
-;; 003:030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300307000000000
+;; 003:0009101a300d501e601080019012b002b014c025c026d027d047e037e017e037e037f047f057f067f077f087f096f0a6f0b6f0a6f0b6f0c6f0d6f0e6315000000000
 ;; 004:040004000400040004000400040004000400040004000400040004000400040004000400040004000400040004000400040004000400040004000400309000000000
 ;; 005:050005000500050005000500050005000500050005000500050005000500050005000500050005000500050005000500050005000500050005000500309000000000
 ;; 006:060006000600060006000600060006000600060006000600060006000600060006000600060006000600060006000600060006000600060006000600309000000000
