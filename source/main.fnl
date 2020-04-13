@@ -152,7 +152,7 @@
 (global ymin 0)
 
 ;; Maximum height of a wall
-(global ymax 4)
+(global ymax 6)
 
 ;; Perlin noise
 (fn pn [y]
@@ -424,6 +424,8 @@
 (fn init []
   ;(load-palette "699fad3a708e2b454f111215151d1a1d3230314e3f4f5d429a9f87ede6cbf5d893e8b26fb6834c704d2b40231e151015")
 
+  (music 0 0 0 true)
+
   (global +width+ 240.0)
   (global +height+ 136.0)
 
@@ -439,6 +441,11 @@
   (global *shake* 0)
 
   (global *game-state* "menu"))
+
+;(fn update-music []
+  ;(trace (peek (+ 0x13e64 408 1))))
+  ;(when (= (peek 0x13FFC) 255)
+    ;(music 0 0 0 true)))
 
 (global TIC ; Function called once every frame
   (fn []
