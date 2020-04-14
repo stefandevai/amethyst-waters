@@ -53,8 +53,8 @@
 
 ;; Returns map collisions in a body
 (fn mcollisions [obj]
-  (let [x (- (+ obj.x obj.vx) (math.ceil *cam*.x))
-        y (- (+ obj.y obj.vy) *cam*.y)
+  (let [x (- (+ obj.x obj.vx) (math.ceil *cam*.ox))
+        y (- (+ obj.y obj.vy) *cam*.oy)
         w obj.w
         h obj.h]
   (values (> (mget (// (% x 1920) 8) (// y 8)) 127)                       ; top-left
@@ -65,10 +65,10 @@
 ;; Resolves collision between an object and the map
 (fn rcollision [obj]
   (let [(tl tr bl br) (mcollisions obj)]
-   (local ox (- (+ obj.x obj.vx) (math.ceil *cam*.x)))
-   (local oy (- (+ obj.y obj.vy) (math.ceil *cam*.y)))
-   (local ow (- (+ obj.x obj.vx obj.w) (math.ceil *cam*.x)))
-   (local oh (- (+ obj.y obj.vy obj.h) *cam*.y))
+   (local ox (- (+ obj.x obj.vx) (math.ceil *cam*.ox)))
+   (local oy (- (+ obj.y obj.vy) (math.ceil *cam*.oy)))
+   (local ow (- (+ obj.x obj.vx obj.w) (math.ceil *cam*.ox)))
+   (local oh (- (+ obj.y obj.vy obj.h) *cam*.oy))
 
    (var sy 0) ; sign of y movement
    (var ix 0) ; intersection in the x axis
@@ -219,11 +219,11 @@
   ;; Generate 4 blocks if cam is 2 blocks away from last generated block
   (when (< *last-block-generated* from)
     ;; Increase wall height
-    (when (and (< ymax 6)
-               (= (% *last-block-generated* 2) 0))
-      (incg ymax))
+    ;(when (and (< ymax 6)
+               ;(= (% *last-block-generated* 2) 0))
+      ;(incg ymax))
     ;(global ymax (math.round (* (perlinf *last-block-generated* *cam*.x) 6)))
-    ;(global ymax (r 1 7))
+    (global ymax (r 1 7))
     ;(trace ymax)
 
     ;; Select a noise function
@@ -572,6 +572,7 @@
     (spawn-enemy (. *enemy-types* (r 1 (length *enemy-types*)))))
 
   (when (btnp 5)
+    (*player*:hurt)
     (spawn-enemy :simple-fish)))
 
 (fn draw-healthbar [x y n]
@@ -722,7 +723,7 @@
 
 (fn update-game-over []
   (cls 5)
-  (print "GAME OVER" (* 4 8) (* 3 8) 12 true 2)
+  (print "GAME OVER" (* 7 8) (* 3 8) 12 true 2)
   (print "Press Z to play again" (* 7 8) (* 12 8) 12)
 
   (when (btnp 4)
