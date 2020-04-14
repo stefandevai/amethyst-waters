@@ -166,37 +166,38 @@
   (/ sum iterations))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
-;;; Cave walls                                                                                   ;;;
+;;; Cave wall1                                                                                   ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
 ;; Minimum height of a wall
 (global ymin 0)
 
 ;; Maximum height of a wall
-(global ymax 7)
+(global ymax 1)
 
 ;; Perlin noise
 (fn pn [y]
-  (math.ceil (+ ymin (*  (perlinf y ymax) (- ymax ymin)))))
+  ;(trace (* (perlinf y ymax) 3))
+  (math.round (+ ymin (*  (perlinf y ymax) (- ymax ymin)))))
 
 ;; Simple noise
-;(fn sn [y]
-  ;(r ymin ymax))
+(fn sn [y]
+  (r ymin ymax))
 
 ;; Generate cave walls
-(fn generate-cave-walls [from to]
+(fn generate-cave-walls [from to f]
   (local dspl (r 3 100)) ; Displacement factor
   (for [i from to 1]
-    (let [h (pn i)
-          h2 (pn (+ i dspl))]
+    (let [h (f i)
+          h2 (f (+ i dspl))]
       ;; Set bottom walls
       (mset i (- 16 h) 136)
       (for [j (- 17 h) 16 1]
         (mset i j 128))
       
       ;; Set top walls
-      (mset i (- ymax (- h2 2)) 135)
-      (for [j 0 (- ymax (- h2 1)) 1]
+      (mset i (- ymax (- h2 1)) 135)
+      (for [j 0 (- ymax (- h2 0)) 1]
         (mset i j 128)))))
 
 ;; Sets all map tiles from block to 0
@@ -207,13 +208,26 @@
 
 ;; Generates cave walls if needed
 (fn update-cave-walls []
+  ;; Generate walls for next block
   (local current-block (// (math.abs *cam*.x) 240))
   (local from (+ current-block 1))
   ;; Generate 4 blocks if cam is 2 blocks away from last generated block
   (when (< *last-block-generated* from)
+    ;; Increase wall height
+    (when (and (< ymax 6)
+               (= (% *last-block-generated* 2) 0))
+      (incg ymax))
+
+    ;; Select a noise function
+    (var noisef sn)
+    (when (= (r 0 1) 0)
+          (set noisef pn))
+
     (global *last-block-generated* from)
     (when (> from 7) (clear-map-block (% from 8)))
-    (generate-cave-walls (* (% from 8) 30) (- (* (+ (% from 8) 1) 30) 1))))
+    (generate-cave-walls (* (% from 8) 30)
+                         (- (* (+ (% from 8) 1) 30) 1)
+                         noisef)))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Animation                                                                                    ;;;
@@ -457,9 +471,18 @@
   (*player*:draw)
   (draw-hud))
 
+(fn update-camera []
+  ;;; Increase camera speed
+  ;(when (= (% *tick* 100) 0)
+    ;(trace "up")
+    ;(inc *cams*.x))
+
+  ;; Move camera
+  (set *cam*.x (- *cam*.x (* *cams*.x *dt*))))
+
 (fn update-game []
   (update-cave-walls)
-  (set *cam*.x (- *cam*.x (* *cams*.x *dt*)))
+  (update-camera)
 
   ;; Shake screen if receives damage
   (when (> *shake* 0)
@@ -502,7 +525,8 @@
   (global *cam* { :x 0 :y 0 })
 
   (global *last-block-generated* 0)
-  (generate-cave-walls 0 29)
+  (global *max-wall-y* 6)
+  (generate-cave-walls 0 29 pn)
 
   (global *shake* 0)
 
