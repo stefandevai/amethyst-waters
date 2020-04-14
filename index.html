@@ -14,7 +14,10 @@
 </head>
 <body style="margin:0; padding:0;">
 
-	<div>
+	<div style="position: relative">
+    <div id="gameframe" style="cursor: pointer; opacity: 0.7; background: #0c0c10; width: 100%; height: 100%; text-align: center; position: absolute; color: white; font-family: monospace; font-size: 22px;">
+      <p style="margin-top: 220px;">- CLICK TO PLAY -</p>
+    </div>
 		<canvas style="margin: 0 auto; display: block;" id="canvas" oncontextmenu="event.preventDefault()" onmousedown="window.focus()"></canvas>
 	</div>
 
@@ -27,10 +30,20 @@
 	</div>
 
 	<script type="text/javascript">
-		var Module = {canvas: document.getElementById('canvas'), arguments:['cart.tic']}
+    //var Module = {canvas: document.getElementById('canvas'), arguments:['cart.tic'], noInitialRun: true}
+    var Module = {canvas: document.getElementById('canvas'), arguments:['cart.tic'] }
+
+    var gameframe = document.getElementById('gameframe').addEventListener('click', function() {
+      var scriptTag = document.createElement('script'), // create a script tag
+      firstScriptTag = document.getElementsByTagName('script')[0]; // find the first script tag in the document
+      scriptTag.src = 'tic80.js'; // set the source of the script to your script
+      firstScriptTag.parentNode.insertBefore(scriptTag, firstScriptTag); // append the script to the DOM
+      this.remove()
+    });
+
 	</script>
 
-	<script async type="text/javascript" src="tic80.js"></script>
+   <!--<script async type="text/javascript" src="tic80.js"></script> -->
 
 </body>
 </html>
