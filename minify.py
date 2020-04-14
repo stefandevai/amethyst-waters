@@ -4,7 +4,9 @@ import re
 
 with open("source/main.fnl", "r") as fp:
     with open("build/game.min.fnl", "w") as fw:
-        header = open("source/header.fnl", "r").read()
+        headerf = open("source/header.fnl", "r")
+        header = headerf.read()
+        headerf.close()
         fw.write(header)
         line = fp.readline()
         while line:
@@ -13,6 +15,8 @@ with open("source/main.fnl", "r") as fp:
                 linestr = re.sub(';.*', '', linestr)
                 fw.write(linestr + ' ')
             line = fp.readline()
-        data = open("source/data.fnl", "r").read()
+        dataf = open("source/data.fnl", "r")
+        data = dataf.read()
+        dataf.close()
         fw.write(data)
 

@@ -1,6 +1,6 @@
-;; title:  game title
-;; author: game developer
-;; desc:   short description
+;; title:  Amethyst Waters
+;; author: Stefan Devai
+;; desc:   Explore deep sea caverns with your submarine!
 ;; script: fennel
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -563,8 +563,9 @@
 
 (fn update-menu []
   (cls 5)
-  (print "AQUATICOS" (* 12 8) (* 3 8) 12)
+  (print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
   (print "Press Z to play the game" (* 7 8) (* 12 8) 12)
+
   (when (btnp 4)
     (global *game-state* "game")))
 

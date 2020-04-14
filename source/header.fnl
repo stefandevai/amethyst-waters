@@ -1,4 +1,4 @@
-;; title:  game title
-;; author: game developer
-;; desc:   short description
+;; title:  Amethyst Waters
+;; author: Stefan Devai
+;; desc:   Explore deep sea caverns with your submarine!
 ;; script: fennel
