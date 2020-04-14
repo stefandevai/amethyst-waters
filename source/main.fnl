@@ -191,14 +191,12 @@
           h2 (f (+ i dspl))]
       ;; Set bottom walls
       (local bottom-head (r 137 141))
-      ;(local bottom-head 137)
       (mset i (- 16 h) bottom-head)
-      (for [j (- 17 h) 16 1]
+      (for [j (- 17 h) 17 1]
         (mset i j 128))
       
       ;; Set top walls
       (local top-head (r 144 150))
-      ;(local top-head 144)
       (mset i (- ymax (- h2 1)) top-head)
       (for [j 0 (- ymax (- h2 0)) 1]
         (mset i j 128)))))
@@ -286,6 +284,7 @@
          :health 100
          :state :none
          :hurt-timer 0
+         :points 0
        })
 
 ;; Player animations
@@ -360,7 +359,7 @@
 ;; Performs player shoot action
 (tset *player*
       :shoot (fn [self]
-              (let [shot-obj { :w 5 :h 1 :speed 3 :angle 0 :type :shot-player }]
+              (let [shot-obj { :w 5 :h 1 :speed 3 :angle 0 :type :shot-player :damage 2 }]
                 (tset shot-obj :x self.x)
                 (tset shot-obj :y (+ self.y 4 (r -2 2)))
                 (table.insert self.shots (+ (length self.shots) 1) shot-obj))))
@@ -369,8 +368,8 @@
 (tset *player*
       :hurt (fn [self damage]
               (if (not= self.state :hurt)
-                  (do (sfx 4 12 -1 3 88)
-                      (global *shake* 10)
+                  (do (sfx 4 60 -1 3 88)
+                      (global *shake* 18)
                       (dec self.health damage)
                       (set self.animator.current-animation :hurt)
                       (set self.state :hurt)
@@ -381,18 +380,54 @@
   (table.remove *player*.shots index))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
+;;; Amethysts                                                                                    ;;;
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
+(global amethysts [])
+
+(fn spawn-amethyst [x y]
+  ;; Absolute position
+  ;(local absx (math.round (- x *cam*.x)))
+  ;(local absy (math.round (- y *cam*.y)))
+  (let [amethyst { :x (r (- (math.round x) 10) (+ (math.round x) 10))
+                   :y (r (- (math.round y) 10) (+ (math.round y) 10))
+                   :w 8 :h 8 :collected? false
+                   :rfactor (r 0 100)}] ; Random factor for the sin period when updating
+
+    (table.insert amethysts (+ (length amethysts) 1) amethyst)))
+
+(fn update-amethysts []
+  (each [index ame (pairs amethysts)]
+    (dec ame.x (* *cam*.speedx *dt*))
+    ;; Draw amethyst
+    (spr 262 ame.x (+ ame.y (* (math.sin (* (+ *tick* ame.rfactor) 0.05)) 2)) 0)
+
+    ;; Collect amethysts if collision occurs
+    (when (bcollides? *player* ame)
+      (set ame.collected? true)
+      (sfx 5 70 -1 3 8 3)
+      (inc *player*.points))
+
+    ;; Remove when out of bounds
+    (when (or (< (+ ame.x ame.w) 0) ame.collected?)
+      (table.remove amethysts index))))
+
+;(fn collect-amethyst []
+  ;)
+
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Enemies                                                                                      ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
 ;; List of enemy types 
 (global *enemy-types* [ :simple-fish :stronger-fish ])
 
-(global *simple-fish* { :w 7.0 :h 3.0 :speed 50.0 :damage 2.0 })
+(global *simple-fish* { :w 7.0 :h 3.0 :speed 50.0 :damage 2.0 :health 2.0 :points 1 })
 
 ;; Modyfies position according to a function
 (tset *simple-fish*
-      :pos-modifier
+      :update
       (fn [self]
+        (dec self.x (* self.speed *dt*))
         (inc self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y)))))))
 
 (tset *simple-fish*
@@ -407,12 +442,13 @@
         }
       })
 
-(global *stronger-fish* { :w 8.0 :h 8.0 :speed 30.0 :damage 5.0 })
+(global *stronger-fish* { :w 8.0 :h 8.0 :speed 30.0 :damage 5.0 :health 4.0 :points 2 })
 
 ;; Modyfies position according to a function
 (tset *stronger-fish*
-      :pos-modifier
+      :update
       (fn [self]
+        (dec self.x (* self.speed *dt*))
         (inc self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y)))))))
 
 (tset *stronger-fish*
@@ -448,9 +484,8 @@
 (fn update-enemies []
   ;; Update enemy position
   (each [index enemy (pairs *enemy-pool*)]
-    (dec enemy.x (* enemy.speed *dt*))
 
-    (enemy:pos-modifier)
+    (enemy:update)
     (animate enemy)
     (spr (get-animation-frame enemy.animator) enemy.x enemy.y 0)
 
@@ -460,12 +495,22 @@
 
     ;; Deal with shot-enemy collision
     (each [shot-index shot (pairs *player*.shots)]
-      (when (bcollides? shot enemy) (do (destroy-enemy index)
-                                        (destroy-shot shot-index)
-                                        (when (= *shake* 0) (global *shake* 5)))))
+      (when (bcollides? shot enemy) (dec enemy.health shot.damage)
+                                    ;; Play sound when shot
+                                    (when (> enemy.health 0) (sfx 4 33 4 3 6))
+                                    (destroy-shot shot-index)
+                                    (when (= *shake* 0) (global *shake* 10))))
 
-    ;; Destroy enemy if it's to the left of the screen
-    (when (< (+ enemy.x enemy.w) -8.0) (destroy-enemy index))))
+    ;; Destroy enemy if it's to the left of the screen or it has no more health
+    (when (or (< (+ enemy.x enemy.w) -8.0)
+              (<= enemy.health 0))
+
+      ;; Player killed enemy
+      (when (<= enemy.health 0)
+        (sfx 4 12 -1 3 6)
+        (for [i 0 enemy.points 1]
+          (spawn-amethyst enemy.x enemy.y)))
+      (destroy-enemy index))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Background                                                                                   ;;;
@@ -541,7 +586,9 @@
   ;(print (.. "camx " *cam*.x) 8 26 12)
   ;(print (.. "lastgen " *last-block-generated*) 8 17 12)
   ;(spr 384 100 13 0 1 2 0 3 1)
-  (draw-healthbar 5 5 (// *player*.health 2)))
+  (spr 262 5 13 0)
+  (print (.. "x " *player*.points) 16 13 12)
+  (draw-healthbar 5 0 (// *player*.health 2)))
   ;(print (.. "Energy: " *player*.health) 8 18 12))
 
 (fn draw-game []
@@ -551,8 +598,8 @@
 
   (local txcam (// (math.abs *cam*.x) 8))
   (local tycam (// (math.abs *cam*.y) 8))
-  (map txcam tycam 31 17 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
-
+  (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
+  (update-amethysts)
   (update-enemies)
   (*player*:draw)
   (draw-hud))
@@ -564,7 +611,9 @@
     ;(inc *cams*.x))
 
   ;; Move camera
-  (set *cam*.x (- *cam*.x (* *cams*.x *dt*))))
+  (set *cam*.ox (- *cam*.ox (* *cam*.speedx *dt*)))
+  (set *cam*.x (+ *cam*.ox *cam*.offsetx))
+  (set *cam*.y (+ *cam*.oy *cam*.offsety)))
 
 (fn update-game []
   (update-cave-walls)
@@ -572,10 +621,27 @@
 
   ;; Shake screen if receives damage
   (when (> *shake* 0)
+    ;; Shake OVR
+    (set *cam*.offsetx (r -2 2))
+    (set *cam*.offsety (r -2 2))
+
+    ;; Shake bg
     (poke 0x3FF9 (r 0 1))
     (poke (+ 0x3FF9 1) (r 0 1))
+
     (decg *shake*)
-    (when (= *shake* 0) (memset 0x3FF9 0 2)))
+    ;; Restore defaults
+    (when (= *shake* 0)
+      (memset 0x3FF9 0 2)
+      (set *cam*.offsety 0)
+      (set *cam*.offsetx 0)))
+
+  ;;; Shake screen if receives damage
+  ;(when (> *shake* 0)
+    ;(poke 0x3FF9 (r 0 1))
+    ;(poke (+ 0x3FF9 1) (r 0 1))
+    ;(decg *shake*)
+    ;(when (= *shake* 0) (memset 0x3FF9 0 2)))
 
   (*player*:update)
   (update-game-debug))
@@ -611,8 +677,10 @@
   (global *previous-time* (time))
   (global *tick* 0)
 
-  (global *cams* { :x 20 :y 0 })
-  (global *cam* { :x 0 :y 0 })
+  (global *cam* { :x 0 :y 0
+                  :ox 0 :oy 0
+                  :speedx 20 :speedy 0 
+                  :offsetx 0 :offsety 0 })
 
   (global *last-block-generated* 0)
   (global *max-wall-y* 6)
@@ -815,7 +883,7 @@
 ;; 002:41000100110021002100310041005100710071007100810091009100a100a100b100b100c100d100d100e100e100e100e100e100e100e100e100e100460000000000
 ;; 003:0009101a300d501e601080019012b002b014c025c026d027d047e037e017e037e037f047f057f067f077f087f096f0a6f0b6f0a6f0b6f0c6f0d6f0e6315000000000
 ;; 004:0390435083509330a330c330c320a330b340b350c340c310c300d300d300e300e300e300f300f300f300f300f300f300f300f300f300f300f300f300100000000000
-;; 005:050005000500050005000500050005000500050005000500050005000500050005000500050005000500050005000500050005000500050005000500309000000000
+;; 005:3a053a153a342a342a5d2a661a311a831a711ae01ac66ad5faeffaecfafcfaf0fa6efa70fa80fa40faa0fa40fa81faa1fa8efa23fa80fa60fa60fa80670000000000
 ;; 006:060006000600060006000600060006000600060006000600060006000600060006000600060006000600060006000600060006000600060006000600309000000000
 ;; 007:070007000700070007000700070007000700070007000700070007000700070007000700070007000700070007000700070007000700070007000700389000000000
 ;; 008:080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800309000000000
@@ -843,6 +911,6 @@
 ;; </TRACKS>
 
 ;; <PALETTE>
-;; 000:1a1a38fa0c36bbcc5204fa0400ff000c0c10202d518e2e913c405591142c5d816104ff00f2f4f60cff08551881f661ba
+;; 000:1a1a38fa0c36bbcc5204fa0400ff000c0c10202d518e2e913c405591142c5d816104ff00f2f4f60cff083c1865f661ba
 ;; </PALETTE>
 
