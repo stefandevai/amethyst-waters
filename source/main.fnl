@@ -80,6 +80,9 @@
    (when bl (inc in))
    (when br (inc in))
 
+   ;; Deal with all sides collision if obj has a crush method
+   (when (and (= in 4) (<= obj.x 1) obj.crush) (obj:crush))
+
    ;; Calculate intersections
    (if (or tr br)
        (set ix (math.abs (- ow (* 8 (// ow 8)))))
@@ -169,11 +172,12 @@
 ;;; Cave wall1                                                                                   ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
-;; Minimum height of a wall
-(global ymin 0)
+(fn init-cave-walls []
+  ;; Minimum height of a wall
+  (global ymin 0)
 
-;; Maximum height of a wall
-(global ymax 1)
+  ;; Maximum height of a wall
+  (global ymax 1))
 
 ;; Perlin noise
 (fn pn [y]
@@ -275,105 +279,119 @@
 ;;; Player                                                                                       ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
-;; Player table object
-(global *player* {
-         :x 40 :y 68
-         :w 8   :h 8
-         :vx 0  :vy 0
-         :shots []
-         :health 100
-         :state :none
-         :hurt-timer 0
-         :points 0
-       })
+(fn init-player []
+  ;; Player table object
+  (global *player* {
+           :x 40 :y 68
+           :w 8   :h 8
+           :vx 0  :vy 0
+           :shots []
+           :health 100
+           :state :none
+           :hurt-timer 0
+           :points 0
+         })
 
-;; Player animations
-(tset *player*
-      :animator {
-        :current-animation :moving
-        :current-index 1
-        :elapsed 0
-        :speed 100
-        :animations {
-          :moving [ 257 258 259 260 ]
-          :hurt [ 257 256 258 256 259 256 260 256 ]
-        }
-      })
+  ;; Player animations
+  (tset *player*
+        :animator {
+          :current-animation :moving
+          :current-index 1
+          :elapsed 0
+          :speed 100
+          :animations {
+            :moving [ 257 258 259 260 ]
+            :hurt [ 257 256 258 256 259 256 260 256 ]
+          }
+        })
 
-;; Updates player and player's shots (called on TIC)
-(tset *player*
-      :update (fn [self]
-                ;; States
-                (if (= self.state :hurt)
-                    (do (when (< self.hurt-timer 0)
-                          (do (set self.state :none)
-                              (set self.animator.current-animation :moving)))
-                        (dec self.hurt-timer)))
+  ;; Updates player and player's shots (called on TIC)
+  (tset *player*
+        :update (fn [self]
+                  ;; States
+                  (if (= self.state :hurt)
+                      (do (when (< self.hurt-timer 0)
+                            (do (set self.state :none)
+                                (set self.animator.current-animation :moving)))
+                          (dec self.hurt-timer)))
 
-                ;; Movement
-                (set self.vx 0)
-                (set self.vy 0)
-                (when (btn 2) (set self.vx -1))
-                (when (btn 3) (set self.vx 1))
-                (when (btn 1) (set self.vy 1))
-                (when (btn 0) (set self.vy -1))
+                  ;; Movement
+                  (set self.vx 0)
+                  (set self.vy 0)
+                  (when (btn 2) (set self.vx -1))
+                  (when (btn 3) (set self.vx 1))
+                  (when (btn 1) (set self.vy 1))
+                  (when (btn 0) (set self.vy -1))
 
-                ;; Map collision
-                (var fx (- (+ self.x self.vx) (math.ceil *cam*.x)))
-                (var fy (- (+ self.y self.vy) *cam*.y))
-                (var ni 0) ; Number of times we tried to resolve collisions
-                (while (and (< ni 5) (mcollides? fx fy self.w self.h))
-                  (rcollision self)
-                  (set ni (+ ni 1))
-                  (set fx (- (+ self.x self.vx) (math.ceil *cam*.x)))
-                  (set fy (- (+ self.y self.vy) *cam*.y)))
+                  ;; Map collision
+                  (var fx (- (+ self.x self.vx) (math.ceil *cam*.x)))
+                  (var fy (- (+ self.y self.vy) *cam*.y))
+                  (var ni 0) ; Number of times we tried to resolve collisions
+                  (while (and (< ni 5) (mcollides? fx fy self.w self.h))
+                    (rcollision self)
+                    (set ni (+ ni 1))
+                    (set fx (- (+ self.x self.vx) (math.ceil *cam*.x)))
+                    (set fy (- (+ self.y self.vy) *cam*.y)))
 
-                ;; Shoot if Z is pressed
-                (when (btnp 4 10 10)
-                  (sfx 3 50 -1 3 7)
-                  (self:shoot))
+                  ;; Shoot if Z is pressed
+                  (when (btnp 4 10 10)
+                    (sfx 3 50 -1 3 7)
+                    (self:shoot))
 
-                ;; Positioning
-                (set self.x (+ self.x self.vx))
-                (set self.y (+ self.y self.vy))
+                  ;; Positioning
+                  (set self.x (+ self.x self.vx))
+                  (set self.y (+ self.y self.vy))
 
-                ;; Check if out of bounds and reposition player
-                (if (> (+ self.x self.w) +width+) (set self.x (- +width+ self.w))
-                  (< self.x 0) (set self.x 0))
-                (if (> (+ self.y self.h) +height+) (set self.y (- +height+ self.h))
-                  (< self.y 0) (set self.y 0))))
+                  ;; Check if out of bounds and reposition player
+                  (if (> (+ self.x self.w) +width+) (set self.x (- +width+ self.w))
+                    (< self.x 0) (set self.x 0))
+                  (if (> (+ self.y self.h) +height+) (set self.y (- +height+ self.h))
+                    (< self.y 0) (set self.y 0))))
 
 
-;; Draws player (called on OVR)
-(tset *player*
-      :draw (fn [self]
-              ;; Update/draw shots
-              (each [index shot (pairs self.shots)]
-                (let [should-delete? (update-shot shot)]
-                  (draw-shot shot)
-                  (when should-delete? (table.remove self.shots index))))
+  ;; Draws player (called on OVR)
+  (tset *player*
+        :draw (fn [self]
+                ;; Update/draw shots
+                (each [index shot (pairs self.shots)]
+                  (let [should-delete? (update-shot shot)]
+                    (draw-shot shot)
+                    (when should-delete? (table.remove self.shots index))))
 
-              (animate self)
-              (spr (get-animation-frame self.animator) self.x self.y 0)))
+                (animate self)
+                (spr (get-animation-frame self.animator) self.x self.y 0)))
 
-;; Performs player shoot action
-(tset *player*
-      :shoot (fn [self]
-              (let [shot-obj { :w 5 :h 1 :speed 3 :angle 0 :type :shot-player :damage 2 }]
-                (tset shot-obj :x self.x)
-                (tset shot-obj :y (+ self.y 4 (r -2 2)))
-                (table.insert self.shots (+ (length self.shots) 1) shot-obj))))
+  ;; Performs player shoot action
+  (tset *player*
+        :shoot (fn [self]
+                (let [shot-obj { :w 5 :h 1 :speed 3 :angle 0 :type :shot-player :damage 2 }]
+                  (tset shot-obj :x self.x)
+                  (tset shot-obj :y (+ self.y 4 (r -2 2)))
+                  (table.insert self.shots (+ (length self.shots) 1) shot-obj))))
 
-;; Hurts player 
-(tset *player*
-      :hurt (fn [self damage]
-              (if (not= self.state :hurt)
-                  (do (sfx 4 60 -1 3 88)
-                      (global *shake* 18)
-                      (dec self.health damage)
-                      (set self.animator.current-animation :hurt)
-                      (set self.state :hurt)
-                      (set self.hurt-timer 90)))))
+  ;; Hurts player 
+  (tset *player*
+        :hurt (fn [self damage]
+                ;(trace *cam*.speedx)
+                (if (not= self.state :hurt)
+                    (do (dec self.health damage)
+                        (if (<= self.health 0)
+                            (self:die)
+                            (do (sfx 4 60 -1 3 88)
+                                ;; Increase game speed when damaged
+                                (when (< *cam*.speedx *cam*.max-speed) (inc *cam*.speedx 5))
+                                (global *shake* 18)
+                                (set self.animator.current-animation :hurt)
+                                (set self.state :hurt)
+                                (set self.hurt-timer 90)))))))
+
+  (tset *player*
+        :crush (fn [self]
+                 (self:hurt 100)))
+
+  (tset *player*
+        :die (fn [self]
+                 (global *game-state* "game-over"))))
 
 ;; Destroys shot with a certain index from *player*.shots
 (fn destroy-shot [index]
@@ -382,7 +400,8 @@
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Amethysts                                                                                    ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
-(global amethysts [])
+(fn init-amethysts []
+  (global amethysts []))
 
 (fn spawn-amethyst [x y]
   ;; Absolute position
@@ -418,52 +437,53 @@
 ;;; Enemies                                                                                      ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
-;; List of enemy types 
-(global *enemy-types* [ :simple-fish :stronger-fish ])
+(fn init-enemies []
+  ;; List of enemy types 
+  (global *enemy-types* [ :simple-fish :stronger-fish ])
 
-(global *simple-fish* { :w 7.0 :h 3.0 :speed 50.0 :damage 2.0 :health 2.0 :points 1 })
+  (global *simple-fish* { :w 7.0 :h 3.0 :speed 50.0 :damage 2.0 :health 2.0 :points 1 })
 
-;; Modyfies position according to a function
-(tset *simple-fish*
-      :update
-      (fn [self]
-        (dec self.x (* self.speed *dt*))
-        (inc self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y)))))))
+  ;; Modyfies position according to a function
+  (tset *simple-fish*
+        :update
+        (fn [self]
+          (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
+          (inc self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y)))))))
 
-(tset *simple-fish*
-      :animator {
-        :current-animation :moving
-        :current-index 1
-        :elapsed 0
-        :speed 150
-        :animations {
-          ;:moving [ 273 274 275 276 275 274 ]
-          :moving [ 292 293 294 293 292 295 296 295 ]
-        }
-      })
+  (tset *simple-fish*
+        :animator {
+          :current-animation :moving
+          :current-index 1
+          :elapsed 0
+          :speed 150
+          :animations {
+            ;:moving [ 273 274 275 276 275 274 ]
+            :moving [ 292 293 294 293 292 295 296 295 ]
+          }
+        })
 
-(global *stronger-fish* { :w 8.0 :h 8.0 :speed 30.0 :damage 5.0 :health 4.0 :points 2 })
+  (global *stronger-fish* { :w 8.0 :h 8.0 :speed 30.0 :damage 5.0 :health 4.0 :points 2 })
 
-;; Modyfies position according to a function
-(tset *stronger-fish*
-      :update
-      (fn [self]
-        (dec self.x (* self.speed *dt*))
-        (inc self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y)))))))
+  ;; Modyfies position according to a function
+  (tset *stronger-fish*
+        :update
+        (fn [self]
+          (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
+          (inc self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y)))))))
 
-(tset *stronger-fish*
-      :animator {
-        :current-animation :moving
-        :current-index 1
-        :elapsed 0
-        :speed 150
-        :animations {
-          :moving [ 273 274 275 276 275 274 ]
-        }
-      })
+  (tset *stronger-fish*
+        :animator {
+          :current-animation :moving
+          :current-index 1
+          :elapsed 0
+          :speed 150
+          :animations {
+            :moving [ 273 274 275 276 275 274 ]
+          }
+        })
 
-;; Pool containing all enemies
-(global *enemy-pool* {})
+  ;; Pool containing all enemies
+  (global *enemy-pool* {}))
 
 ;; Spawns a single enemy given a type and an optional y position value
 (fn spawn-enemy [type ?y]
@@ -666,6 +686,10 @@
   ;(load-palette "699fad3a708e2b454f111215151d1a1d3230314e3f4f5d429a9f87ede6cbf5d893e8b26fb6834c704d2b40231e151015")
 
   ;(music 0 0 0 true)
+  (init-player)
+  (init-cave-walls)
+  (init-enemies)
+  (init-amethysts)
   
   ;; Set border color
   (poke 0x03FF8 5)
@@ -680,6 +704,7 @@
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
                   :speedx 20 :speedy 0 
+                  :max-speed 300
                   :offsetx 0 :offsety 0 })
 
   (global *last-block-generated* 0)
@@ -695,6 +720,19 @@
   ;(when (= (peek 0x13FFC) 255)
     ;(music 0 0 0 true)))
 
+(fn update-game-over []
+  (cls 5)
+  (print "GAME OVER" (* 4 8) (* 3 8) 12 true 2)
+  (print "Press Z to play again" (* 7 8) (* 12 8) 12)
+
+  (when (btnp 4)
+    (clear-map-block 0)
+    (clear-map-block 1)
+    (clear-map-block 2)
+    (init)
+    (global *game-state* "game")))
+
+
 (global TIC ; Function called once every frame
   (fn []
     ;; Calculate delta time
@@ -703,14 +741,15 @@
     (incg *tick*)
     ;(global *tick* (+ *tick* 1))
 
-    (if
-      (= *game-state* "menu")
-      (update-menu)
+    (if (= *game-state* "game")
+        (do (update-game)
+            (draw-bg))
 
-      (= *game-state* "game")
-      ;(update-game))))
-      (do (update-game)
-          (draw-bg)))))
+        (= *game-state* "menu")
+        (update-menu) 
+
+        (= *game-state* "game-over")
+        (update-game-over))))
 
 (global OVR
   (fn []
