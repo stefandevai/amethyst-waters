@@ -23,6 +23,27 @@
          :incg (fn [a ?n]
                  `(global ,a (+ ,a (or ,?n 1))))})
 
+;; Returns the minimum z value of the vertices of a triangle
+(fn minz [t]
+  (math.min (. (. t 1) 2)
+            (. (. t 2) 2)
+            (. (. t 3) 2)))
+
+;; Iterate through a table in order. See https://stackoverflow.com/questions/15706270/sort-a-table-in-lua
+(fn spairs [t order]
+  (local keys {})
+  (each [k v (pairs t)] (tset keys (+ 1 (length keys)) k))
+  
+  (if order
+      (table.sort keys (fn [a b] (order t a b)))
+      (table.sort keys))
+  
+  (var i 0)
+  (fn []
+    (inc i)
+    (when (. keys i) (values (. keys i) (. t (. keys i))))))
+
+
 ;; Returns true if the object is outsite the screen boundaries
 (fn out-of-bounds? [object]
   (or (< object.x 0)
@@ -707,16 +728,151 @@
       (set *cam*.offsety 0)
       (set *cam*.offsetx 0)))
 
-  ;;; Shake screen if receives damage
-  ;(when (> *shake* 0)
-    ;(poke 0x3FF9 (r 0 1))
-    ;(poke (+ 0x3FF9 1) (r 0 1))
-    ;(decg *shake*)
-    ;(when (= *shake* 0) (memset 0x3FF9 0 2)))
-
   (*player*:update)
   (update-enemy-spawner)
   (update-game-debug))
+
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
+;;; Icosahedron                                                                                  ;;;
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
+;; Adapted from http://www.songho.ca/opengl/gl_sphere.html
+
+(global *icosahedron* [])
+
+(fn edge-length [radius] (/ radius (math.sin (* 2 (/ 3.141592 5)))))
+
+(fn compute-icosahedron-vertices [radius]
+  (local hangle (* (/ math.pi 180) 72))
+  (local vangle (math.atan (/ 1 2)))
+  
+  (local vertices [])
+  (var i1 0)
+  (var i2 0)
+  (var z 0)
+  (var xy 0)
+  (var hangle1 (- (/ -3.141592 2) (/ hangle 2)))
+  (var hangle2 (/ -3.141592 2))
+  
+  ;; Top vertex
+  (tset vertices 0 0)
+  (tset vertices 1 0)
+  (tset vertices 2 radius)
+  
+  ;; Faces
+  (for [i 1 5 1]
+    (set i1 (* i 3))
+    (set i2 (* (+ i 5) 3))
+    (set z (* radius (math.sin vangle)))
+    (set xy (* radius (math.cos vangle)))
+
+    (tset vertices i1 (* xy (math.cos hangle1)))
+    (tset vertices i2 (* xy (math.cos hangle2)))
+
+    (tset vertices (+ i1 1) (* xy (math.sin hangle1)))
+    (tset vertices (+ i2 1) (* xy (math.sin hangle2)))
+
+    (tset vertices (+ i1 2) z)
+    (tset vertices (+ i2 2) (- 0 z))
+
+    (inc hangle1 hangle)
+    (inc hangle2 hangle))
+  
+  ;; Bottom vertex
+  (set i1 (* 11 3))
+  (tset vertices i1 0)
+  (tset vertices (+ i1 1) 0)
+  (tset vertices (+ i1 2) (- 0 radius))
+
+  ;; Return vertices
+  vertices)
+
+;; Sets a vertice from an array
+(fn getv3 [arr i]
+  (local v [])
+  (tset v 0 (. arr i))
+  (tset v 1 (. arr (+ i 1)))
+  (tset v 2 (. arr (+ i 2)))
+  v)
+
+;; Convert 3d coords to 2d
+(global +fov+ 120)
+
+(fn convert-3d-2d [ox oy oz]
+  (local v [])
+  (tset v 0 (+ (* ox (/ +fov+ (+ oz 20))) (/ +width+ 2)))
+  (tset v 1 (+ (* oy (/ +fov+ (+ oz 20))) (/ +height+ 2)))
+  v)
+
+(fn draw-tri [vertices color]
+  ;(local color 14)
+  (local xo 0)
+  (local yo 0)
+  (local v1-3d (. vertices 1))
+  (local v2-3d (. vertices 2))
+  (local v3-3d (. vertices 3))
+
+  (local v1 (convert-3d-2d (. v1-3d 0) (. v1-3d 1) (. v1-3d 2)))
+  (local v2 (convert-3d-2d (. v2-3d 0) (. v2-3d 1) (. v2-3d 2)))
+  (local v3 (convert-3d-2d (. v3-3d 0) (. v3-3d 1) (. v3-3d 2)))
+
+  (tri (+ (. v1 0) xo) (+ (. v1 1) yo)
+       (+ (. v2 0) xo) (+ (. v2 1) yo)
+       (+ (. v3 0) xo) (+ (. v3 1) yo)
+       color))
+
+  ;(pix (+ (. v1 0) xo) (+ (. v1 1) yo) color)
+  ;(pix (+ (. v2 0) xo) (+ (. v2 1) yo) color)
+  ;(pix (+ (. v3 0) xo) (+ (. v3 1) yo) color))
+
+(fn build-icosahedron-triangles []
+  (local tmp-verts (compute-icosahedron-vertices 10))
+  
+  (var v0 [])
+  (var v1 [])
+  (var v2 [])
+  (var v3 [])
+  (var v4 [])
+  (var v11 [])
+  (var index 0)
+
+  (set v0 (getv3 tmp-verts 0))
+  (set v11 (getv3 tmp-verts (* 11 3)))
+
+  (for [i 1 5 1]
+    (set v1 (getv3 tmp-verts (* i 3)))
+    (if (< i 5)
+        (set v2 (getv3 tmp-verts (* (+ i 1) 3)))
+        (set v2 (getv3 tmp-verts 3)))
+
+    (set v3 (getv3 tmp-verts (* (+ i 5) 3)))
+    (if (< i 5)
+        (set v4 (getv3 tmp-verts (* (+ i 6) 3)))
+        (set v4 (getv3 tmp-verts (* 6 3))))
+
+    ;; Insert triangles
+    (table.insert *icosahedron* [v0 v1 v2])
+    (table.insert *icosahedron* [v1 v3 v2])
+    (table.insert *icosahedron* [v2 v3 v4])
+    (table.insert *icosahedron* [v3 v11 v4])))
+
+    ;(draw-tri v0 v1 v2 (+ 7 (% i 2)))
+    ;(draw-tri v1 v3 v2 (+ 7 (% index 2)))
+    ;(draw-tri v2 v3 v4 (+ 7 (% index 2)))
+    ;(draw-tri v3 v11 v4 (+ 7 (% i 2)))))
+
+(fn sort-icosahedron []
+  (table.sort *icosahedron* (fn [a b] (if (< (minz b) (minz a))
+                                                        true
+                                                        false))))
+
+(fn init-icosahedron []
+  (build-icosahedron-triangles)
+  (sort-icosahedron))
+    
+(fn draw-icosahedron []
+  ;(sort-icosahedron)
+  (each [index triangle (pairs *icosahedron*)]
+    (draw-tri triangle (+ 7 (% index 2)))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Menu                                                                                         ;;;
@@ -724,8 +880,21 @@
 
 (fn update-menu []
   (cls 5)
-  (print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
-  (print "Press Z to play the game" (* 7 8) (* 12 8) 12)
+
+  (draw-icosahedron)
+
+  ;(local vertices (icosahedron-vertices 32))
+  ;(for [i 0 35 3]
+    ;(local x (. vertices i))
+    ;(local y (. vertices (+ i 1)))
+    ;(local z (. vertices (+ i 2)))
+
+    ;;(trace (.. (+ x 50) ", " (+ y 90) ", " z))
+    ;(pix (+ x 50) (+ z 50) 7))
+  ;;(trace "----------")
+
+  ;(print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
+  ;(print "Press Z to play the game" (* 7 8) (* 12 8) 12)
 
   (when (btnp 4)
     (global *game-state* "game")))
@@ -735,9 +904,9 @@
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
 (fn init []
-  ;(load-palette "699fad3a708e2b454f111215151d1a1d3230314e3f4f5d429a9f87ede6cbf5d893e8b26fb6834c704d2b40231e151015")
+  (init-icosahedron)
 
-  (music 0)
+  ;(music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -766,11 +935,6 @@
   (global *shake* 0)
 
   (global *game-state* "menu"))
-
-;(fn update-music []
-  ;(trace (peek (+ 0x13e64 408 1))))
-  ;(when (= (peek 0x13FFC) 255)
-    ;(music 0 0 0 true)))
 
 (fn update-game-over []
   (cls 5)
@@ -812,85 +976,8 @@
      (when (= *game-state* "game")
        (poke 0x3ff9 (* (math.sin (/ (time) (+ 300 row) 5)) 10)))))
 
-;wavelimit = 136/2
-;function scanline(row)
-	;-- skygradient
-	;poke(0x3fc0,190-row)
-	;poke(0x3fc1,140-row)
-	;poke(0x3fc2,0)
-	;-- screen wave
-	;if row>wavelimit then
-		;poke(0x3ff9,math.sin((time()/200+row/5))*10)
-	;else
-		;poke(0x3ff9,0)
-	;end
-;end
-
-;(global OVR ; Function called once every frame and called after TIC
-  ;(fn []
-    ;(when
-      ;(= *game-state* "game") 
-      ;(draw-game))))
-
 (init)
 
-;(global scanline
-  ;(fn [row]
-    ;(when
-      ;(= *game-state* "game") 
-      ;(poke 0x3ff9 (- (% (* 0.2 *tick*) 240) 113)))))
-
-;; <TILES>
-;; 005:622cc00000000000000000000000000000000000000000000000000000000000
-;; 008:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 009:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 010:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 011:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 012:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 024:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
-;; 025:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 026:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 027:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 028:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 029:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 030:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 031:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 041:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
-;; 042:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
-;; 043:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 044:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 045:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 046:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 047:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 059:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
-;; 060:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
-;; 061:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 062:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 063:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 077:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
-;; 078:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
-;; 079:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
-;; 128:5555555555555555555555555555555555555555555555555555555555555555
-;; 129:0077665505555555007765555555555500776655055555550077665555555555
-;; 130:5555555555667700555555505566770055555555555677005555555055667700
-;; 131:0077665505555555007765550005555500575655000057560005675700000050
-;; 132:5555555055667000555555005556700056565500557500005757500000500000
-;; 133:0000050000057575000057550055656500076555005555550007665505555555
-;; 134:0500000075765000657500005565750055555000555677005555555055667700
-;; 135:5555555555555555655565656565656575757575757575750505050500050005
-;; 136:5000500050505050575757575757575756565656565655565555555555555555
-;; 137:0005000000550000055550000555550005555550555555555555555555555555
-;; 138:0000500000055000000555000055550000555550005555500555555555555555
-;; 139:0005000000555000005555500555555055555555555555555555555555555555
-;; 140:0000050000005500000555500055555500555555055555555555555555555555
-;; 141:0000500000005500000555500055555005555550555555555555555555555555
-;; 144:5555555555555555555555550555555005555500055550000055000000050000
-;; 145:5555555555555555055555500055555000555500000555000005500000005000
-;; 146:5555555555555555555555555555555505555550005555500055500000050000
-;; 147:5555555555555555055555550055555500555555000555500000550000000500
-;; 148:5555555555555555555555555555555505555550055555000005550000005000
-;; 149:5555555555555555555555500555555000555550005555000005500000005000
-;; 150:5555555555555555555555550555555005555500005550000055500000055000
 ;; <TILES>
 ;; 005:622cc00000000000000000000000000000000000000000000000000000000000
 ;; 008:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
