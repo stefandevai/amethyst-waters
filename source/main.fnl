@@ -25,9 +25,9 @@
 
 ;; Returns the minimum z value of the vertices of a triangle
 (fn minz [t]
-  (math.min (. (. t 1) 2)
-            (. (. t 2) 2)
-            (. (. t 3) 2)))
+  (math.min (. (. t 1) 3)
+            (. (. t 2) 3)
+            (. (. t 3) 3)))
 
 ;; Iterate through a table in order. See https://stackoverflow.com/questions/15706270/sort-a-table-in-lua
 (fn spairs [t order]
@@ -739,8 +739,6 @@
 
 (global *icosahedron* [])
 
-(fn edge-length [radius] (/ radius (math.sin (* 2 (/ 3.141592 5)))))
-
 (fn compute-icosahedron-vertices [radius]
   (local hangle (* (/ math.pi 180) 72))
   (local vangle (math.atan (/ 1 2)))
@@ -755,8 +753,8 @@
   
   ;; Top vertex
   (tset vertices 0 0)
-  (tset vertices 1 0)
-  (tset vertices 2 radius)
+  (tset vertices 1 radius)
+  (tset vertices 2 0)
   
   ;; Faces
   (for [i 1 5 1]
@@ -768,11 +766,11 @@
     (tset vertices i1 (* xy (math.cos hangle1)))
     (tset vertices i2 (* xy (math.cos hangle2)))
 
-    (tset vertices (+ i1 1) (* xy (math.sin hangle1)))
-    (tset vertices (+ i2 1) (* xy (math.sin hangle2)))
+    (tset vertices (+ i1 1) z)
+    (tset vertices (+ i2 1) (- 0 z))
 
-    (tset vertices (+ i1 2) z)
-    (tset vertices (+ i2 2) (- 0 z))
+    (tset vertices (+ i1 2) (* xy (math.sin hangle1)))
+    (tset vertices (+ i2 2) (* xy (math.sin hangle2)))
 
     (inc hangle1 hangle)
     (inc hangle2 hangle))
@@ -780,8 +778,8 @@
   ;; Bottom vertex
   (set i1 (* 11 3))
   (tset vertices i1 0)
-  (tset vertices (+ i1 1) 0)
-  (tset vertices (+ i1 2) (- 0 radius))
+  (tset vertices (+ i1 1) (- 0 radius))
+  (tset vertices (+ i1 2) 0)
 
   ;; Return vertices
   vertices)
@@ -789,9 +787,9 @@
 ;; Sets a vertice from an array
 (fn getv3 [arr i]
   (local v [])
-  (tset v 0 (. arr i))
-  (tset v 1 (. arr (+ i 1)))
-  (tset v 2 (. arr (+ i 2)))
+  (tset v 1 (. arr i))
+  (tset v 2 (. arr (+ i 1)))
+  (tset v 3 (. arr (+ i 2)))
   v)
 
 ;; Convert 3d coords to 2d
@@ -804,28 +802,31 @@
   v)
 
 (fn draw-tri [vertices color]
-  ;(local color 14)
-  (local xo 0)
-  (local yo 0)
+  (local xo (/ +width+ 2))
+  (local yo (/ +height+ 2))
   (local v1-3d (. vertices 1))
   (local v2-3d (. vertices 2))
   (local v3-3d (. vertices 3))
 
-  (local v1 (convert-3d-2d (. v1-3d 0) (. v1-3d 1) (. v1-3d 2)))
-  (local v2 (convert-3d-2d (. v2-3d 0) (. v2-3d 1) (. v2-3d 2)))
-  (local v3 (convert-3d-2d (. v3-3d 0) (. v3-3d 1) (. v3-3d 2)))
+  ;(local v1 (convert-3d-2d (. v1-3d 0) (. v1-3d 1) (. v1-3d 2)))
+  ;(local v2 (convert-3d-2d (. v2-3d 0) (. v2-3d 1) (. v2-3d 2)))
+  ;(local v3 (convert-3d-2d (. v3-3d 0) (. v3-3d 1) (. v3-3d 2)))
 
-  (tri (+ (. v1 0) xo) (+ (. v1 1) yo)
-       (+ (. v2 0) xo) (+ (. v2 1) yo)
-       (+ (. v3 0) xo) (+ (. v3 1) yo)
+  (local v1 (. vertices 1))
+  (local v2 (. vertices 2))
+  (local v3 (. vertices 3))
+
+  (tri (+ (. v1 1) xo) (+ (. v1 2) yo)
+       (+ (. v2 1) xo) (+ (. v2 2) yo)
+       (+ (. v3 1) xo) (+ (. v3 2) yo)
        color))
 
-  ;(pix (+ (. v1 0) xo) (+ (. v1 1) yo) color)
-  ;(pix (+ (. v2 0) xo) (+ (. v2 1) yo) color)
-  ;(pix (+ (. v3 0) xo) (+ (. v3 1) yo) color))
+  ;(pix (+ (. v1 0) xo) (+ (. v1 1) yo) 0)
+  ;(pix (+ (. v2 0) xo) (+ (. v2 1) yo) 0)
+  ;(pix (+ (. v3 0) xo) (+ (. v3 1) yo) 0))
 
 (fn build-icosahedron-triangles []
-  (local tmp-verts (compute-icosahedron-vertices 10))
+  (local tmp-verts (compute-icosahedron-vertices 40))
   
   (var v0 [])
   (var v1 [])
@@ -855,15 +856,43 @@
     (table.insert *icosahedron* [v2 v3 v4])
     (table.insert *icosahedron* [v3 v11 v4])))
 
-    ;(draw-tri v0 v1 v2 (+ 7 (% i 2)))
-    ;(draw-tri v1 v3 v2 (+ 7 (% index 2)))
-    ;(draw-tri v2 v3 v4 (+ 7 (% index 2)))
-    ;(draw-tri v3 v11 v4 (+ 7 (% i 2)))))
-
 (fn sort-icosahedron []
   (table.sort *icosahedron* (fn [a b] (if (< (minz b) (minz a))
                                                         true
                                                         false))))
+
+;; Shortcuts for trigonometric functions
+(fn sin [a]
+  (math.sin a))
+
+(fn cos [a]
+  (math.cos a))
+
+;; Rotate a point with angles gamma (x), beta (y) and alpha (z)
+(fn rotate-point [point g b a]
+  (local px (. point 1))
+  (local py (. point 2))
+  (local pz (. point 3))
+  
+  (local newpoint [(+ (* px (cos a) (cos b))
+                      (* py (- (* (cos a) (sin b) (sin g)) (* (sin a) (cos g))))
+                      (* pz (+ (* (cos a) (sin b) (cos g)) (* (sin a) (sin g)))))
+
+                   (+ (* px (* (sin a) (cos b)))
+                      (* py (+ (* (sin a) (sin b) (sin g)) (* (cos a) (cos g))))
+                      (* pz (- (* (sin a) (sin b) (cos g)) (* (cos a) (sin g)))))
+
+                   (+ (* px (- 0 (sin b)))
+                      (* py (cos b) (sin g))
+                      (* pz (cos b) (cos g)))])
+  newpoint)
+
+(fn rotate-icosahedron [x y z]
+  (each [i triangle (pairs *icosahedron*)]
+    (var new-triangle [])
+    (for [j 1 3 1]
+      (table.insert new-triangle (rotate-point (. triangle j) x y z)))
+    (tset *icosahedron* i new-triangle)))
 
 (fn init-icosahedron []
   (build-icosahedron-triangles)
@@ -872,7 +901,23 @@
 (fn draw-icosahedron []
   ;(sort-icosahedron)
   (each [index triangle (pairs *icosahedron*)]
-    (draw-tri triangle (+ 7 (% index 2)))))
+    ;(var color (+ 7 (% index 2)))
+    ;(var color 7)
+    ;(if (= (% index 3) 2)
+        ;(set color 8)
+        ;(= (% index 3) 1)
+        ;(set color 15))
+
+    (var color 0)
+    (if (> index 18) (set color 15)
+        (> index 15) (set color 7)
+        (> index 13) (set color 8))
+
+    (draw-tri triangle color)))
+
+(fn update-icosahedron []
+  (rotate-icosahedron 0 (* (/ math.pi 8) *dt*) 0))
+  ;(sort-icosahedron))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Menu                                                                                         ;;;
@@ -881,6 +926,7 @@
 (fn update-menu []
   (cls 5)
 
+  (update-icosahedron)
   (draw-icosahedron)
 
   ;(local vertices (icosahedron-vertices 32))
