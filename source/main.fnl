@@ -850,11 +850,12 @@
         (set v4 (getv3 tmp-verts (* (+ i 6) 3)))
         (set v4 (getv3 tmp-verts (* 6 3))))
 
-    ;; Insert triangles
-    (table.insert *icosahedron* [v0 v1 v2])
-    (table.insert *icosahedron* [v1 v3 v2])
-    (table.insert *icosahedron* [v2 v3 v4])
-    (table.insert *icosahedron* [v3 v11 v4])))
+    ;; Insert triangles and indexes for color choice
+    (table.insert *icosahedron* [v0 v1 v2 index])
+    (table.insert *icosahedron* [v1 v3 v2 (+ index 1)])
+    (table.insert *icosahedron* [v2 v3 v4 (+ index 2)])
+    (table.insert *icosahedron* [v3 v11 v4 (+ index 3)])
+    (inc index 4)))
 
 (fn sort-icosahedron []
   (table.sort *icosahedron* (fn [a b] (if (< (minz b) (minz a))
@@ -892,32 +893,41 @@
     (var new-triangle [])
     (for [j 1 3 1]
       (table.insert new-triangle (rotate-point (. triangle j) x y z)))
+    ;; Insert same id
+    (table.insert new-triangle (. triangle 4))
     (tset *icosahedron* i new-triangle)))
+
+(fn get-tri-color [triangle]
+  (local p1 (. triangle 1))
+  (local p2 (. triangle 2))
+  (local p3 (. triangle 3))
+
+  (if (and (< (math.min (. p1 1) (. p2 1) (. p3 1)) 0)
+           (< (math.max (. p1 2) (. p2 2) (. p3 2)) 20))
+      7
+      0))
+    
+(fn draw-icosahedron []
+  (for [index 1 (length *icosahedron*) 1]
+    (local triangle (. *icosahedron* index))
+    (local color-id (% (. triangle 4) 5))
+
+    (var color 7)
+    (match color-id
+      0 (set color 8)
+      1 (set color 14)
+      2 (set color 15)
+      3 (set color 0))
+
+    (draw-tri triangle color)))
 
 (fn init-icosahedron []
   (build-icosahedron-triangles)
   (sort-icosahedron))
-    
-(fn draw-icosahedron []
-  ;(sort-icosahedron)
-  (each [index triangle (pairs *icosahedron*)]
-    ;(var color (+ 7 (% index 2)))
-    ;(var color 7)
-    ;(if (= (% index 3) 2)
-        ;(set color 8)
-        ;(= (% index 3) 1)
-        ;(set color 15))
-
-    (var color 0)
-    (if (> index 18) (set color 15)
-        (> index 15) (set color 7)
-        (> index 13) (set color 8))
-
-    (draw-tri triangle color)))
 
 (fn update-icosahedron []
-  (rotate-icosahedron 0 (* (/ math.pi 8) *dt*) 0))
-  ;(sort-icosahedron))
+  (rotate-icosahedron (* (/ math.pi 3) *dt*) (* (/ math.pi 2) *dt*) 0)
+  (sort-icosahedron))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Menu                                                                                         ;;;
@@ -939,8 +949,8 @@
     ;(pix (+ x 50) (+ z 50) 7))
   ;;(trace "----------")
 
-  ;(print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
-  ;(print "Press Z to play the game" (* 7 8) (* 12 8) 12)
+  (print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
+  (print "Press Z to play the game" (* 7 8) (* 12 8) 12)
 
   (when (btnp 4)
     (global *game-state* "game")))
