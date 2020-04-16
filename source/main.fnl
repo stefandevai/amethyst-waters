@@ -25,6 +25,13 @@
          :incg (fn [a ?n]
                  `(global ,a (+ ,a (or ,?n 1))))})
 
+;; Shortcuts for trigonometric functions
+(fn sin [a]
+  (math.sin a))
+
+(fn cos [a]
+  (math.cos a))
+
 ;; Returns true if the object is outsite the screen boundaries
 (fn out-of-bounds? [object]
   (or (< object.x 0)
@@ -109,7 +116,7 @@
        (and (or tl bl) (> iy ix)) (set obj.vx (+ obj.vx ix)) ; left
        (and (> in 2) (= iy ix)) (do (set obj.vx 0) (set obj.vy 0)) ; 3+ sides colliding
        (and (= iy ix)) (do (set obj.vy (+ obj.vy (* iy sy)))) ; border 1px x 1px collision
-       (do (trace "here") (set obj.vx 0) (set obj.vy 0))))) 
+       (do (trace "bad collision") (set obj.vx 0) (set obj.vy 0))))) 
 
 ;; Rounds a float number to its closest integer
 (fn math.round [n]
@@ -151,7 +158,7 @@
     :px (/ (r -500 500) 1000)
     :py (/ (r -500 500) 1000)})
 
-(fn pseudor [x y] (fract (* (math.sin (dot [(+ x seed.px) (+ y seed.py)] [seed.fx seed.fy])) seed.a)))
+(fn pseudor [x y] (fract (* (sin (dot [(+ x seed.px) (+ y seed.py)] [seed.fx seed.fy])) seed.a)))
 
 (fn perlin [x y]
   (mix (mix (pseudor (math.floor x) (math.floor y))
@@ -166,7 +173,7 @@
   (local iterations 4)
   (var sum 0)
   (for [i 0 iterations 1]
-    (set seed.a (+ 500 (* (fract (math.sin (* (+ i 0.512) 512 725.63))) 1000)))
+    (set seed.a (+ 500 (* (fract (sin (* (+ i 0.512) 512 725.63))) 1000)))
     (set sum (+ sum (perlin (* x (+ i 1)) (* y (+ i 1))))))
   (/ sum iterations))
 
@@ -176,10 +183,47 @@
 
 (fn init-emitters []
   (global *particle* { :x 0 :y 0
-                       :scale 0
+                       :scale 1
                        :lifetime 0 ; Time lift alive
                        :sprite 0   ; Sprite id
                        :speed { :x 0 :y 0 } } )
+
+  (tset *particle*
+        :update
+        (fn [self]
+            (inc self.x (* self.speed.x *dt*))
+            (inc self.y (* self.speed.y *dt*))
+            (spr self.sprite self.x self.y 0 self.scale)))
+
+  (global *bubble-particle* (deepcopy *particle*))
+  (tset *bubble-particle*
+        :update
+        (fn [self]
+            (inc self.x (* self.speed.x (sin (* *tick* 0.1)) 3 *dt*))
+            (inc self.y (* self.speed.y *dt*))
+
+            (var id 19)
+            (if (< self.lifetime 50)
+                (set id 33)
+                (< self.lifetime 100)
+                (set id 32)
+                (< self.lifetime 400)
+                (set id 16)
+                (< self.lifetime 700)
+                (set id 17)
+                (< self.lifetime 1000)
+                (set id 18))
+            (spr id self.x self.y 15 self.scale)))
+
+  (global *pixel-particle* (deepcopy *particle*))
+  (tset *pixel-particle*
+        :update
+        (fn [self]
+            (inc self.x (* self.speed.x *dt*))
+            (inc self.y (* self.speed.y *dt*))
+            (pix self.x self.y 11)))
+
+  (global *particle-types* { :bubble *bubble-particle* :pixel *pixel-particle* })
 
   (global *emitter* { :x 0 :y 0 ; Emitter position
                       :sprites [ 0 ] ; Which sprites use for particles
@@ -188,13 +232,14 @@
                       :pos-range { :xmin 0 :xmax 0 :ymin 0 :ymax 0 } ; Variation of particle position in relation to the emiter's
                       :speed-range { :xmin -100 :xmax 100 :ymin -100 :ymax 100 } ; Variation of particle speed
                       :lifetime-range { :min 500 :max 1000 } ; Variation of particle's lifetime in ms
-                      :type :basic-emitter ; Emitter type
+                      :type :bubble ; Particle type
+                      :modifier nil ; Optional emitter modifier function
                       :particles [] }) ; Table to hold particles
   
   (tset *emitter*
         :emit
         (fn [self]
-          (var particle (deepcopy *particle*))
+          (var particle (deepcopy (. *particle-types* self.type)))
           (set particle.x (+ self.x (r self.pos-range.xmin self.pos-range.xmax)))
           (set particle.y (+ self.y (r self.pos-range.ymin self.pos-range.ymax)))
           (set particle.speed.x (r self.speed-range.xmin self.speed-range.xmax))
@@ -212,20 +257,34 @@
                   (set self.elapsed-since-emition 0))
               (inc self.elapsed-since-emition (* *dt* 1000)))
 
-          (each [i particle (pairs self.particles)]
-            (inc particle.x (* particle.speed.x *dt*))
-            (inc particle.y (* particle.speed.y *dt*))
+          ;; Optional emitter modifier function
+          (when self.modifier (self:modifier self))
 
-            (spr particle.sprite particle.x particle.y 0)
-
+          (each [i particle (ipairs self.particles)]
+            (particle:update)
             (if (<= particle.lifetime 0)
                 (table.remove self.particles i)
                 (dec particle.lifetime (* *dt* 1000))))))
+
+  (global *bubble-emitter* (deepcopy *emitter*))
+  (set *bubble-emitter*.sprites [16])
+  (set *bubble-emitter*.type :bubble)
+  (set *bubble-emitter*.lifetime-range { :min 1000 :max 1300 })
+  (set *bubble-emitter*.speed-range { :xmin -30 :xmax 30 :ymin -60 :ymax -20 })
   
-  (global *test-emitter* (deepcopy *emitter*))
-  (set *test-emitter*.sprites [307 205 206])
+  (global *test-emitter* (deepcopy *bubble-emitter*))
   (set *test-emitter*.x 120)
-  (set *test-emitter*.y 68))
+  (set *test-emitter*.y 136)
+  (set *test-emitter*.pos-range { :xmin -120 :xmax 120 :ymin 0 :ymax 0 })
+
+  (global *motor-emitter* (deepcopy *emitter*))
+  (set *motor-emitter*.pos-range { :xmin 0 :xmax 0 :ymin 2 :ymax 4 })
+  (set *motor-emitter*.speed-range { :xmin -50 :xmax -10 :ymin -2 :ymax 2 })
+  (set *motor-emitter*.type :pixel)
+  (set *motor-emitter*.modifier
+       (fn [emitter]
+         (set emitter.x (+ *player*.x 1))
+         (set emitter.y (+ *player*.y 1)))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Cave wall1                                                                                   ;;;
@@ -419,6 +478,7 @@
            :hurt-timer 0
            :points 0
            :current-shot :triple-shot
+           :emitter (deepcopy *motor-emitter*)
          })
 
   ;; Player animations
@@ -488,6 +548,9 @@
                       ;(if shot.destroy shot:destroy)
                       (table.remove self.shots index))))
 
+                ;; Motor emitter
+                (self.emitter:update)
+
                 (animate self)
                 (spr (get-animation-frame self.animator) self.x self.y 0)))
 
@@ -556,7 +619,7 @@
   (each [index ame (pairs amethysts)]
     (dec ame.x (* *cam*.speedx *dt*))
     ;; Draw amethyst
-    (spr 288 ame.x (+ ame.y (* (math.sin (* (+ *tick* ame.rfactor) 0.05)) 2)) 0)
+    (spr 288 ame.x (+ ame.y (* (sin (* (+ *tick* ame.rfactor) 0.05)) 2)) 0)
 
     ;; Collect amethysts if collision occurs
     (when (bcollides? *player* ame)
@@ -586,7 +649,7 @@
         :update
         (fn [self]
           (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
-          (inc self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y)))))))
+          (inc self.y (* 0.5 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (tset *simple-fish*
         :animator {
@@ -607,7 +670,7 @@
         :update
         (fn [self]
           (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
-          (inc self.y (* 0.5 (math.sin (* 0.05 (+ *tick* self.y)))))))
+          (inc self.y (* 0.5 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (tset *stronger-fish*
         :animator {
@@ -705,6 +768,7 @@
 ;; Draws background decoration
 (fn draw-bg []
   (draw-cave-bg 0.1))
+  ;(*test-emitter*:update))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Game                                                                                       ;;;
@@ -839,17 +903,17 @@
   (for [i 1 5 1]
     (set i1 (* i 3))
     (set i2 (* (+ i 5) 3))
-    (set z (* radius (math.sin vangle)))
-    (set xy (* radius (math.cos vangle)))
+    (set z (* radius (sin vangle)))
+    (set xy (* radius (cos vangle)))
 
-    (tset vertices i1 (* xy (math.cos hangle1)))
-    (tset vertices i2 (* xy (math.cos hangle2)))
+    (tset vertices i1 (* xy (cos hangle1)))
+    (tset vertices i2 (* xy (cos hangle2)))
 
     (tset vertices (+ i1 1) z)
     (tset vertices (+ i2 1) (- 0 z))
 
-    (tset vertices (+ i1 2) (* xy (math.sin hangle1)))
-    (tset vertices (+ i2 2) (* xy (math.sin hangle2)))
+    (tset vertices (+ i1 2) (* xy (sin hangle1)))
+    (tset vertices (+ i2 2) (* xy (sin hangle2)))
 
     (inc hangle1 hangle)
     (inc hangle2 hangle))
@@ -931,13 +995,6 @@
                                                         true
                                                         false))))
 
-;; Shortcuts for trigonometric functions
-(fn sin [a]
-  (math.sin a))
-
-(fn cos [a]
-  (math.cos a))
-
 ;; Rotate a point with angles gamma (x), beta (y) and alpha (z)
 (fn rotate-point [point g b a]
   (local px (. point 1))
@@ -1010,12 +1067,8 @@
   (print "AMETHYST WATERS" (- (* 4 8) 1) (* 3 8) 12 true 2)
   (print "AMETHYST WATERS" (* 4 8) (- (* 3 8) 1) 12 true 2)
 
-  ;(update-icosahedron)
-  ;(draw-icosahedron)
-
-  (*test-emitter*:update)
-
-
+  (update-icosahedron)
+  (draw-icosahedron)
 
   (when (< (% *tick* 60) 30)
     (print "- Press Z to play the game -" (* 6 8) (+ (* 12 8) 6) 12))
@@ -1122,7 +1175,7 @@
 (global scanline
  (fn [row]
      (when (= *game-state* "game")
-       (poke 0x3ff9 (* (math.sin (/ (% *tick* 3000000) (+ 300 row) 5)) 10)))))
+       (poke 0x3ff9 (* (sin (/ (% *tick* 3000000) (+ 300 row) 5)) 10)))))
 
 (init)
 
@@ -1133,6 +1186,10 @@
 ;; 010:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 011:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 012:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+;; 016:ffbbbffffb060bffb0b000bfb66600bfb00000bffb000bffffbbbfffffffffff
+;; 017:fbbfffffb66bffffb66bfffffbbfffffffffffffffffffffffffffffffffffff
+;; 018:f6ffffff666ffffff6ffffffffffffffffffffffffffffffffffffffffffffff
+;; 019:66ffffff66ffffffffffffffffffffffffffffffffffffffffffffffffffffff
 ;; 024:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
 ;; 025:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 026:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -1141,6 +1198,8 @@
 ;; 029:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 030:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 031:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+;; 032:ffffff6ff66bff6ffffbffbff6fffffffbfbbb6ffffbffffffbfffbfffffffff
+;; 033:fffffbfffbfffffffffffffffffffffffbffffbfffffffffffffffffbfffffff
 ;; 041:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
 ;; 042:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
 ;; 043:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
