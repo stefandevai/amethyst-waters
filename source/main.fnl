@@ -2,6 +2,8 @@
 ;; author: Stefan Devai
 ;; desc:   Explore deep sea caverns with your submarine!
 ;; script: fennel
+;; input: keyboard
+;; saveid: AmethystWaters
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Utils                                                                                        ;;;
@@ -22,27 +24,6 @@
 ;; Shortcut for global increment. Increments a by n
          :incg (fn [a ?n]
                  `(global ,a (+ ,a (or ,?n 1))))})
-
-;; Returns the minimum z value of the vertices of a triangle
-(fn minz [t]
-  (math.min (. (. t 1) 3)
-            (. (. t 2) 3)
-            (. (. t 3) 3)))
-
-;; Iterate through a table in order. See https://stackoverflow.com/questions/15706270/sort-a-table-in-lua
-(fn spairs [t order]
-  (local keys {})
-  (each [k v (pairs t)] (tset keys (+ 1 (length keys)) k))
-  
-  (if order
-      (table.sort keys (fn [a b] (order t a b)))
-      (table.sort keys))
-  
-  (var i 0)
-  (fn []
-    (inc i)
-    (when (. keys i) (values (. keys i) (. t (. keys i))))))
-
 
 ;; Returns true if the object is outsite the screen boundaries
 (fn out-of-bounds? [object]
@@ -739,6 +720,16 @@
 
 (global *icosahedron* [])
 
+
+;; Returns the minimum z value of the vertices of a triangle
+(fn minz [t]
+  (math.min (. (. t 1) 3)
+            (. (. t 2) 3)
+            (. (. t 3) 3)))
+
+;; Field of view
+(global +fov+ 120)
+
 (fn compute-icosahedron-vertices [radius]
   (local hangle (* (/ math.pi 180) 72))
   (local vangle (math.atan (/ 1 2)))
@@ -793,8 +784,6 @@
   v)
 
 ;; Convert 3d coords to 2d
-(global +fov+ 120)
-
 (fn convert-3d-2d [ox oy oz]
   (local v [])
   (tset v 0 (+ (* ox (/ +fov+ (+ oz 20))) (/ +width+ 2)))
@@ -808,10 +797,6 @@
   (local v2-3d (. vertices 2))
   (local v3-3d (. vertices 3))
 
-  ;(local v1 (convert-3d-2d (. v1-3d 0) (. v1-3d 1) (. v1-3d 2)))
-  ;(local v2 (convert-3d-2d (. v2-3d 0) (. v2-3d 1) (. v2-3d 2)))
-  ;(local v3 (convert-3d-2d (. v3-3d 0) (. v3-3d 1) (. v3-3d 2)))
-
   (local v1 (. vertices 1))
   (local v2 (. vertices 2))
   (local v3 (. vertices 3))
@@ -820,10 +805,6 @@
        (+ (. v2 1) xo) (+ (. v2 2) yo)
        (+ (. v3 1) xo) (+ (. v3 2) yo)
        color))
-
-  ;(pix (+ (. v1 0) xo) (+ (. v1 1) yo) 0)
-  ;(pix (+ (. v2 0) xo) (+ (. v2 1) yo) 0)
-  ;(pix (+ (. v3 0) xo) (+ (. v3 1) yo) 0))
 
 (fn build-icosahedron-triangles []
   (local tmp-verts (compute-icosahedron-vertices 40))
@@ -939,18 +920,13 @@
   (update-icosahedron)
   (draw-icosahedron)
 
-  ;(local vertices (icosahedron-vertices 32))
-  ;(for [i 0 35 3]
-    ;(local x (. vertices i))
-    ;(local y (. vertices (+ i 1)))
-    ;(local z (. vertices (+ i 2)))
-
-    ;;(trace (.. (+ x 50) ", " (+ y 90) ", " z))
-    ;(pix (+ x 50) (+ z 50) 7))
-  ;;(trace "----------")
-
+  ;; Print multiple times with a small offset for a bold effect
   (print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
-  (print "Press Z to play the game" (* 7 8) (* 12 8) 12)
+  (print "AMETHYST WATERS" (- (* 4 8) 1) (* 3 8) 12 true 2)
+  (print "AMETHYST WATERS" (* 4 8) (- (* 3 8) 1) 12 true 2)
+
+  (when (< (% *tick* 60) 30)
+    (print "- Press Z to play the game -" (* 6 8) (+ (* 12 8) 6) 12))
 
   (when (btnp 4)
     (global *game-state* "game")))
@@ -962,7 +938,7 @@
 (fn init []
   (init-icosahedron)
 
-  (music 0)
+  ;(music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -990,12 +966,37 @@
 
   (global *shake* 0)
 
-  (global *game-state* "menu"))
+  ;; Controls which message to display in the game over screen
+  (global highscore-flag false)
+  (global *game-state* "game"))
 
 (fn update-game-over []
   (cls 5)
-  (print "GAME OVER" (* 7 8) (* 3 8) 12 true 2)
-  (print "Press Z to play again" (* 7 8) (* 12 8) 12)
+
+  ;(update-icosahedron)
+  ;(draw-icosahedron)
+
+  ;; Print multiple times with a small offset for a bold effect
+  (print "YOU CRASHED" (* 7 8) (* 3 8) 12 true 2)
+  (print "YOU CRASHED" (- (* 7 8) 1) (* 3 8) 12 true 2)
+  (print "YOU CRASHED" (* 7 8) (- (* 3 8) 1) 12 true 2)
+
+  (spr 288 5 13 0)
+  (print (.. "x " *player*.points) 16 13 12)
+
+  ;(trace highscore-flag)
+  ;(trace (pmem 0))
+  ;; Get highscore from persistent memory
+  (if (or (> *player*.points (pmem 0)) highscore-flag)
+      (do (pmem 0 *player*.points)
+          (global highscore-flag true)
+          (trace (pmem 0))
+          (print "Congratulations! New highscore." (* 7 8) (* 7 8) 12 true 1))
+      (and (> (pmem 0) 0) (= highscore-flag false))
+      (print (.. "Your highest score is " (pmem 0) " amethysts!" ) (* 3 8) (+ (* 12 7) 6) 12))
+
+  (print "Press Z to repair your submarine" (* 3 8) (+ (* 12 8) 6) 12)
+  (print "and try your luck again." (* 3 8) (+ (* 13 8) 6) 12)
 
   (when (btnp 4)
     (for [i 0 7]
