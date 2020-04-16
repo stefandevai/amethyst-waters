@@ -171,6 +171,63 @@
   (/ sum iterations))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
+;;; Particles                                                                                    ;;;
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
+
+(fn init-emitters []
+  (global *particle* { :x 0 :y 0
+                       :scale 0
+                       :lifetime 0 ; Time lift alive
+                       :sprite 0   ; Sprite id
+                       :speed { :x 0 :y 0 } } )
+
+  (global *emitter* { :x 0 :y 0 ; Emitter position
+                      :sprites [ 0 ] ; Which sprites use for particles
+                      :emition-speed 10 ; At which rate particles are emitted (miliseconds)
+                      :elapsed-since-emition 0 ; How much time has passed since last emission
+                      :pos-range { :xmin 0 :xmax 0 :ymin 0 :ymax 0 } ; Variation of particle position in relation to the emiter's
+                      :speed-range { :xmin -100 :xmax 100 :ymin -100 :ymax 100 } ; Variation of particle speed
+                      :lifetime-range { :min 500 :max 1000 } ; Variation of particle's lifetime in ms
+                      :type :basic-emitter ; Emitter type
+                      :particles [] }) ; Table to hold particles
+  
+  (tset *emitter*
+        :emit
+        (fn [self]
+          (var particle (deepcopy *particle*))
+          (set particle.x (+ self.x (r self.pos-range.xmin self.pos-range.xmax)))
+          (set particle.y (+ self.y (r self.pos-range.ymin self.pos-range.ymax)))
+          (set particle.speed.x (r self.speed-range.xmin self.speed-range.xmax))
+          (set particle.speed.y (r self.speed-range.ymin self.speed-range.ymax))
+          (set particle.sprite (. self.sprites (r 1 (length self.sprites))))
+          (set particle.lifetime (r self.lifetime-range.min self.lifetime-range.max))
+          
+          (table.insert self.particles (+ (length self.particles) 1) particle)))
+
+  (tset *emitter*
+        :update
+        (fn [self]
+          (if (>= self.elapsed-since-emition self.emition-speed)
+              (do (self:emit)
+                  (set self.elapsed-since-emition 0))
+              (inc self.elapsed-since-emition (* *dt* 1000)))
+
+          (each [i particle (pairs self.particles)]
+            (inc particle.x (* particle.speed.x *dt*))
+            (inc particle.y (* particle.speed.y *dt*))
+
+            (spr particle.sprite particle.x particle.y 0)
+
+            (if (<= particle.lifetime 0)
+                (table.remove self.particles i)
+                (dec particle.lifetime (* *dt* 1000))))))
+  
+  (global *test-emitter* (deepcopy *emitter*))
+  (set *test-emitter*.sprites [307 205 206])
+  (set *test-emitter*.x 120)
+  (set *test-emitter*.y 68))
+
+;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Cave wall1                                                                                   ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
@@ -181,11 +238,11 @@
   ;; Maximum height of a wall
   (global ymax 1))
 
-;; Perlin noise
+;; Perlin noise height generation
 (fn pn [y]
   (math.round (+ ymin (*  (perlinf y ymax) (- ymax ymin)))))
 
-;; Simple noise
+;; Simple noise height generation
 (fn sn [y]
   (r ymin ymax))
 
@@ -953,8 +1010,11 @@
   (print "AMETHYST WATERS" (- (* 4 8) 1) (* 3 8) 12 true 2)
   (print "AMETHYST WATERS" (* 4 8) (- (* 3 8) 1) 12 true 2)
 
-  (update-icosahedron)
-  (draw-icosahedron)
+  ;(update-icosahedron)
+  ;(draw-icosahedron)
+
+  (*test-emitter*:update)
+
 
 
   (when (< (% *tick* 60) 30)
@@ -968,9 +1028,11 @@
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
 (fn init []
+  (init-emitters)
+
   (init-icosahedron)
 
-  (music 0)
+  ;(music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1004,9 +1066,6 @@
 
 (fn update-game-over []
   (cls 5)
-
-  ;(update-icosahedron)
-  ;(draw-icosahedron)
 
   ;; Print multiple times with a small offset for a bold effect
   (print "YOU CRASHED" (* 7 8) (* 3 8) 12 true 2)
