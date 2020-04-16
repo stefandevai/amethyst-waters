@@ -270,7 +270,7 @@
 
   (global *basic-shot* { :x 0 :y 0 :w 5 :h 1 :speed 2 :damage 2 :spr 261 })
   (global *thick-shot* { :x 0 :y 0 :w 8 :h 2 :speed 5 :damage 5 :spr 272 })
-  (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 })
+  (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 :flip 0 })
 
   ;; Implement update and draw methods
   (tset *basic-shot*
@@ -308,7 +308,7 @@
   (tset *blue-shot*
         ;; Draws shot with a specific sprite and position
         :draw (fn [self]
-                (spr self.spr self.x self.y 0))))
+                (spr self.spr self.x self.y 0 1 self.flip))))
 
 ;; Creates a shot of a certain type
 (fn create-shot [type]
@@ -324,13 +324,20 @@
       (do (sfx 3 20 -1 3 8 3)
           (deepcopy *blue-shot*))
 
+      (= type :energy-shot)
+      (do (sfx 3 20 -1 3 8 3)
+          (deepcopy *energy-shot*))
+
       (= type :triple-shot)
-      (do (sfx 3 50 -1 3 7)
+      (do (sfx 7 50 -1 3 8 3)
           (local shot1 (deepcopy *blue-shot*))
-          (set shot1.speedy 1)
+          (set shot1.speedy 2)
+          (set shot1.spr 307)
+          (set shot1.flip 2)
           (local shot2 (deepcopy *blue-shot*))
           (local shot3 (deepcopy *blue-shot*))
-          (set shot3.speedy -1)
+          (set shot3.speedy -2)
+          (set shot3.spr 307)
           [shot1 shot2 shot3])
 
       (= type :super-shot)
@@ -963,7 +970,7 @@
 (fn init []
   (init-icosahedron)
 
-  ;(music 0)
+  (music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1206,7 +1213,7 @@
 ;; 004:0390435083509330a330c330c320a330b340b350c340c310c300d300d300e300e300e300f300f300f300f300f300f300f300f300f300f300f300f300100000000000
 ;; 005:3a053a153a342a342a5d2a661a311a831a711ae01ac66ad5faeffaecfafcfaf0fa6efa70fa80fa40faa0fa40fa81faa1fa8efa23fa80fa60fa60fa80670000000000
 ;; 006:420022001200320042005200520062006200620062007200720082008200820082009200a200a200b200c200c200c200d200d200e200e200e200f200570000000000
-;; 007:070007000700070007000700070007000700070007000700070007000700070007000700070007000700070007000700070007000700070007000700389000000000
+;; 007:30e04050201010e0300000a0007030c030e0006010c0208030b030b090e0a0a0b000c000c0a0d000d0a0e060e020e000c0d0e000f000f000f000f000482000000000
 ;; 008:080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800309000000000
 ;; 009:090009000900090009000900090009000900090009000900090009000900090009000900090009000900090009000900090009000900090009000900304000000000
 ;; 010:0a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a00300000000000
