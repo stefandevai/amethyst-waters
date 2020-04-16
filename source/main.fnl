@@ -268,9 +268,10 @@
 
   (global *bubble-emitter* (deepcopy *emitter*))
   (set *bubble-emitter*.sprites [16])
+  (set *bubble-emitter*.emition-speed 100)
   (set *bubble-emitter*.type :bubble)
-  (set *bubble-emitter*.lifetime-range { :min 1000 :max 1300 })
-  (set *bubble-emitter*.speed-range { :xmin -30 :xmax 30 :ymin -60 :ymax -20 })
+  (set *bubble-emitter*.lifetime-range { :min 2500 :max 3000 })
+  (set *bubble-emitter*.speed-range { :xmin -30 :xmax 30 :ymin -40 :ymax -20 })
   
   (global *test-emitter* (deepcopy *bubble-emitter*))
   (set *test-emitter*.x 120)
@@ -767,8 +768,8 @@
 
 ;; Draws background decoration
 (fn draw-bg []
-  (draw-cave-bg 0.1))
-  ;(*test-emitter*:update))
+  (draw-cave-bg 0.1)
+  (*test-emitter*:update))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Game                                                                                       ;;;
@@ -1155,7 +1156,6 @@
     (global *dt* (/ (- (time) *previous-time*) 1000.0))
     (global *previous-time* (time))
     (incg *tick*)
-    ;(global *tick* (+ *tick* 1))
 
     (if (= *game-state* "game")
         (do (update-game)
@@ -1175,7 +1175,8 @@
 (global scanline
  (fn [row]
      (when (= *game-state* "game")
-       (poke 0x3ff9 (* (sin (/ (% *tick* 3000000) (+ 300 row) 5)) 10)))))
+
+       (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2)))))
 
 (init)
 
@@ -1186,10 +1187,10 @@
 ;; 010:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 011:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 012:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 016:ffbbbffffb060bffb0b000bfb66600bfb00000bffb000bffffbbbfffffffffff
-;; 017:fbbfffffb66bffffb66bfffffbbfffffffffffffffffffffffffffffffffffff
-;; 018:f6ffffff666ffffff6ffffffffffffffffffffffffffffffffffffffffffffff
-;; 019:66ffffff66ffffffffffffffffffffffffffffffffffffffffffffffffffffff
+;; 016:fffffffffff66fffff6066fff60b006ff666606fff6006fffff66fffffffffff
+;; 017:fffffffffffffffffff66fffff6666ffff6666fffff66fffffffffffffffffff
+;; 018:fffffffffffffffffffffffffff6ffffff666ffffff6ffffffffffffffffffff
+;; 019:fffffffffffffffffffffffffff66ffffff66fffffffffffffffffffffffffff
 ;; 024:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
 ;; 025:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 026:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -1198,8 +1199,10 @@
 ;; 029:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 030:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 ;; 031:000000000000000000000000e0ee00eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-;; 032:ffffff6ff66bff6ffffbffbff6fffffffbfbbb6ffffbffffffbfffbfffffffff
-;; 033:fffffbfffbfffffffffffffffffffffffbffffbfffffffffffffffffbfffffff
+;; 032:ffffff6ff66bff6ffff6ff6ff6fffffffbf6b66ffff6ffffff6fffbfffffffff
+;; 033:fffff6fffbfffffffffffffffffffffff6ffffbfffffffffffffffff6fffffff
+;; 034:fffffffffffcbfffffc06bfffcbc00bffb6660bfffb00bfffffbbfffffffffff
+;; 035:fffffffffffffffffffbbfffffb66bffffb66bfffffbbfffffffffffffffffff
 ;; 041:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
 ;; 042:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00ee0000000000000000000000000
 ;; 043:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
