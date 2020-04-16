@@ -266,13 +266,11 @@
 
 (fn init-shots []
   ;; List of shot types and their respective sprites
-  (global *shot-types* [ :basic-shot :thick-shot ])
+  (global *shot-types* [ :basic-shot :thick-shot :blue-shot ])
 
   (global *basic-shot* { :x 0 :y 0 :w 5 :h 1 :speed 2 :damage 2 :spr 261 })
   (global *thick-shot* { :x 0 :y 0 :w 8 :h 2 :speed 5 :damage 5 :spr 272 })
-  (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speed 8 :damage 8 :spr 306 })
-  (global *triple-shot* { :x 0 :y 0 :w 8 :h 2 :speed 5 :damage 6 })
-  (global *super-shot* { :x 0 :y 0 :w 8 :h 2 :speed 5 :damage 5 })
+  (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 })
 
   ;; Implement update and draw methods
   (tset *basic-shot*
@@ -303,7 +301,8 @@
   (tset *blue-shot*
         ;; Updates a shot. Returns true if it's out of bounds, returns nil otherwise
         :update (fn [self]
-                  (inc self.x self.speed)
+                  (inc self.x self.speedx)
+                  (inc self.y self.speedy)
                   (out-of-bounds? self)))
         
   (tset *blue-shot*
@@ -313,11 +312,30 @@
 
 ;; Creates a shot of a certain type
 (fn create-shot [type]
-  (if (= type :basic-shot) (deepcopy *thick-shot*)
-      (= type :thick-shot) (deepcopy *thick-shot*)
-      (= type :blue-shot) (deepcopy *blue-shot*)
-      (= type :triple-shot) (deepcopy *super-shot*)
-      (= type :super-shot) (deepcopy *super-shot*)))
+  (if (= type :basic-shot)
+      (do (sfx 3 50 -1 3 7)
+          (deepcopy *basic-shot*))
+
+      (= type :thick-shot)
+      (do (sfx 3 30 -1 3 8 3)
+          (deepcopy *thick-shot*))
+
+      (= type :blue-shot)
+      (do (sfx 3 20 -1 3 8 3)
+          (deepcopy *blue-shot*))
+
+      (= type :triple-shot)
+      (do (sfx 3 50 -1 3 7)
+          (local shot1 (deepcopy *blue-shot*))
+          (set shot1.speedy 1)
+          (local shot2 (deepcopy *blue-shot*))
+          (local shot3 (deepcopy *blue-shot*))
+          (set shot3.speedy -1)
+          [shot1 shot2 shot3])
+
+      (= type :super-shot)
+      (do (sfx 3 50 -1 3 7)
+          (deepcopy *blue-shot*))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Player                                                                                       ;;;
@@ -336,7 +354,7 @@
            :state :none
            :hurt-timer 0
            :points 0
-           :current-shot :basic-shot
+           :current-shot :triple-shot
          })
 
   ;; Player animations
@@ -382,7 +400,6 @@
 
                   ;; Shoot if Z is pressed
                   (when (btnp 4 10 10)
-                    (sfx 3 50 -1 3 7)
                     (self:shoot))
 
                   ;; Positioning
@@ -411,12 +428,19 @@
                 (spr (get-animation-frame self.animator) self.x self.y 0)))
 
   ;; Performs player shoot action
+  (fn store-shot [shot]
+    (set shot.x *player*.x)
+    (set shot.y (+ *player*.y 4 (r -2 2)))
+    (table.insert *player*.shots (+ (length *player*.shots) 1) shot))  
+
   (tset *player*
         :shoot (fn [self]
                 (let [shot-obj (create-shot self.current-shot)]
-                  (tset shot-obj :x self.x)
-                  (tset shot-obj :y (+ self.y 4 (r -2 2)))
-                  (table.insert self.shots (+ (length self.shots) 1) shot-obj))))
+                  ;; If multiple shots are shot at once, store each one
+                  (if (> (length shot-obj) 1)
+                      (each [i shot (pairs shot-obj)]
+                        (store-shot shot))
+                      (store-shot shot-obj)))))
 
   ;; Hurts player 
   (tset *player*
@@ -917,13 +941,14 @@
 (fn update-menu []
   (cls 5)
 
-  (update-icosahedron)
-  (draw-icosahedron)
-
   ;; Print multiple times with a small offset for a bold effect
   (print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
   (print "AMETHYST WATERS" (- (* 4 8) 1) (* 3 8) 12 true 2)
   (print "AMETHYST WATERS" (* 4 8) (- (* 3 8) 1) 12 true 2)
+
+  (update-icosahedron)
+  (draw-icosahedron)
+
 
   (when (< (% *tick* 60) 30)
     (print "- Press Z to play the game -" (* 6 8) (+ (* 12 8) 6) 12))
@@ -968,7 +993,7 @@
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
-  (global *game-state* "game"))
+  (global *game-state* "menu"))
 
 (fn update-game-over []
   (cls 5)
@@ -1031,7 +1056,7 @@
 (global scanline
  (fn [row]
      (when (= *game-state* "game")
-       (poke 0x3ff9 (* (math.sin (/ (time) (+ 300 row) 5)) 10)))))
+       (poke 0x3ff9 (* (math.sin (/ (% *tick* 3000000) (+ 300 row) 5)) 10)))))
 
 (init)
 
@@ -1125,7 +1150,7 @@
 ;; 047:0000000000000000000000000000000000000000000000000000000000000660
 ;; 048:0000000000000000070550700775577005755750055555500500005000000000
 ;; 049:000000000000bcc0000cbcc000bcbcb00abbbb00aaaaa000066a000000600000
-;; 050:aabacbcb6aabbccc6aaabbcb0000000000000000000000000000000000000000
+;; 050:6aabbccc66aabccc6aabbccc0000000000000000000000000000000000000000
 ;; 051:000000cc0000bbcc00abbcbbaaaabb006aaa0000660000000000000000000000
 ;; 060:0000000000000006000000660000066600a0666600a6666600a66a6600a66a66
 ;; 061:6666666666666666666666666666666666666166a6661111a6666166a6666666
@@ -1143,9 +1168,12 @@
 ;; 094:6666600066660000666000006000000000000000000000000000000000000000
 ;; 096:000f0000000700000000700000000f0001100070011000700077770000000000
 ;; 097:0f00f70000700000007000000007110000001100000000000000000000000000
-;; 112:0000000000000000000000110020011101211110111111000000000000000000
-;; 113:0000000000000000110000111110011101111110001111000000000000000000
-;; 114:0000000000000000110000021110002001111200001110000000000000000000
+;; 112:0000000000000000000000000020000001211111111111110000000000000000
+;; 113:0000000000000000001111000111111011100111110000110000000000000000
+;; 114:0000000000000000001110000111120011100020110000020000000000000000
+;; 115:0000000000000000000000110020011101211110111111000000000000000000
+;; 116:0000000000000000110000111110011101111110001111000000000000000000
+;; 117:0000000000000000110000021110002001111200001110000000000000000000
 ;; 128:000000000000000000000000000a222200028888000288880002888800028888
 ;; 129:0000000000000000000000002222222288888888888888888888888888888888
 ;; 130:0000000000000000000000002222a00088882000888820008888200088882000
