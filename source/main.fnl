@@ -286,11 +286,12 @@
                 (table.remove self.particles i)
                 (dec particle.lifetime (* *dt* 1000))))))
 
+  ;; Delete all particles in the emitter
   (tset *emitter*
         :clear
         (fn [self]
-          (each [i v (ipairs self.particles)]
-            (table.remove self.particles i))))
+          (each [k (pairs self.particles)]
+            (tset self.particles k nil))))
 
   (global *bubble-emitter* (deepcopy *emitter*))
   (set *bubble-emitter*.emition-delay 300)
@@ -337,7 +338,7 @@
   (global ymin 0)
 
   ;; Maximum height of a wall
-  (global ymax 2))
+  (global ymax 5))
 
 ;; Perlin noise height generation
 (fn pn [y]
@@ -395,49 +396,75 @@
     (for [i from to 1]
       (let [(v t tr r br b bl l tl) (get-surroundings-if-collidable i j)]
         (when (= v 128)
-              ;; Set pointy top/bottoms
-          (if (and (or (and (= br 0) (> bl 0)) (and (= bl 0) (> br 0))) (= t 0) (> j 0))
-              (mset i j 0)
-              (and (= l t r 0) (> j 0))
+              ;; Remove widow blocks
+          ;(if (and (or (and (= br 0) (> bl 0)) (and (= bl 0) (> br 0))) (= t 0) (> j 0))
+              ;(mset i j 0)
+              ;; Add stalagmites
+              (if (and (= l t r 0) (> j 0))
               ;(mset i j (rvalue *stalagmites*))
               (mset i j 136)
+              ;; Add spiky top right border
               (and (= r t 0) (> j 0))
               (mset i j 134)
+              ;; Add spiky top left border
               (and (= l t 0) (> j 0))
               (mset i j 133)
+              ;; Add top spiky border
               (and (= t 0) (= l 133) (= r 134) (> j 0))
               (mset i j 136)
+              ;; Add top-right normal border
+              (and (= t 0) (= r 0) (not= l 0) (not= b 0) (> j 0))
+              ;(and (= t 0) (= r 0))
+              (mset i j 156)
+              ;; Add top-left normal border
+              (and (= t 0) (= l 0) (not= r 0) (not= t 0) (> j 0))
+              (mset i j 157)
+              ;; Add normal top border
               (and (= t 0) (> j 0))
               (mset i j 153)
 
+              ;; Add stalagtites
               (and (= l b r 0) (< j 17))
               ;(mset i j (rvalue *stalagtites*))
               (mset i j 135)
+              ;; Add spiky bottom right border
               (and (= r b 0) (< j 17))
               (mset i j 132)
+              ;; Add spiky bottom left border
               (and (= l b 0) (< j 17))
               (mset i j 131)
+              ;; Add bottom-right normal border
+              (and (= b 0) (= r 0))
+              (mset i j 159)
+              ;; Add bottom-left normal border
+              (and (= b 0) (= l 0))
+              (mset i j 158)
+              ;; Add normal bottom tile
               (and (= b 0) (< j 17))
               (mset i j 152)
 
-              (and (= r 0) (not= l 0) (> j 0))
-              (mset i j 130)
-              (and (= l 0) (not= r 0) (> j 0))
-              (mset i j 129)
-              (and (= l r 0))
-              (mset i j 151)))))))
+              ;; Add column border tile
+              (= l r 0)
+              (mset i j 151)
+              ;; Normal right tile
+              (or (= r 0) (and (>= r 131) (<= r 136)))
+              (mset i j 155)
+              ;; Normal left tile
+              (or (= l 0) (and (>= l 131) (<= l 136)))
+              (mset i j 154)))))))
 
 ;; Generates cave walls if needed
 (fn update-cave-walls []
   ;; Generate walls for next block
   (local current-block (// (math.abs *cam*.x) 240))
-  (local from (+ current-block 1))
-  ;; Generate a block if cam is 1 block away from last generated block
+  (local from (+ current-block 2))
+
+  ;; Generate a block if cam is 2 blocks away from last generated block
   (when (< *last-block-generated* from)
-    ;; 50% of possibility to increase wall size
-    ;; 50% of decrease
+    ;; 35% of possibility to increase wall size
+    ;; 65% of decrease
     (global n (r 0 100))
-    (if (and (< ymax 9) (<= n 50))
+    (if (and (< ymax 9) (<= n 35))
         (incg ymax)
         (> ymax 2)
         (decg ymax))
@@ -450,12 +477,28 @@
     (global *last-block-generated* from)
     (when (> from 7) (clear-map-block (% from 8)))
 
+
     ;; Add from/to which tile to start generation
     (global from-tile (* (% from 8) 30))
     (global to-tile (- (* (+ (% from 8) 1) 30) 1))
 
+    ;(trace from)
+    ;(trace from-tile)
+    ;(trace (- from-tile 30))
+    ;(trace "----------------")
+
     (generate-cave-walls from-tile to-tile noisef)
-    (decorate-block from-tile to-tile)))
+
+    ;; Decorate 1 block before
+    (if (= (% from 8) 0)
+        (decorate-block 210 239)
+        (decorate-block (- from-tile 30) (- to-tile 30)))))
+  
+  ;(when (< (- *last-block-generated* 2) (- from 1))
+    ;(trace "Here")
+    ;(global from-tile (* (% from 8) 30))
+    ;(global to-tile (- (* (+ (% from 8) 1) 30) 1))
+    ;(decorate-block from-tile to-tile)))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Animation                                                                                    ;;;
@@ -914,7 +957,7 @@
   (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
   (update-amethysts)
   (*player*:draw)
-  (update-enemies)
+  ;(update-enemies)
   (draw-hud))
 
 (fn update-camera []
@@ -945,7 +988,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  (update-enemy-spawner)
+  ;(update-enemy-spawner)
   (update-game-debug))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1145,6 +1188,8 @@
 (fn update-menu []
   (cls 5)
 
+  (*bg-bubbles*:update)
+
   ;; Print multiple times with a small offset for a bold effect
   (print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
   (print "AMETHYST WATERS" (- (* 4 8) 1) (* 3 8) 12 true 2)
@@ -1157,6 +1202,8 @@
     (print "- Press Z to play the game -" (* 6 8) (+ (* 12 8) 6) 12))
 
   (when (btnp 4)
+    (*bg-bubbles*:clear)
+    (set *bg-bubbles*.emition-delay 1000)
     (global *game-state* "game")))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1168,7 +1215,7 @@
 
   (init-icosahedron)
 
-  (music 0)
+  ;(music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1186,14 +1233,14 @@
 
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
-                  :speedx 20 :speedy 0 
+                  :speedx 50 :speedy 0 
                   :max-speed 300
                   :offsetx 0 :offsety 0 })
 
   (global *last-block-generated* 0)
   (global *max-wall-y* 6)
-  (generate-cave-walls 0 29 pn)
-  (decorate-block 0 29)
+  (generate-cave-walls 30 59 pn)
+  (decorate-block 30 59)
 
   (global *shake* 0)
 
@@ -1301,10 +1348,10 @@
 ;; 128:5555555555555555555555555555555555555555555555555555555555555555
 ;; 129:0077665505555555007765555555555500776655055555550077665555555555
 ;; 130:5555555555667700555555505566770055555555555677005555555055667700
-;; 131:0077665505555555007765550005555500575655000057560005675700000050
-;; 132:5555555055667000555555005556700056565500557500005757500000500000
-;; 133:0000050000057575000057550055656500076555005555550007665505555555
-;; 134:0500000075765000657500005565750055555000555677005555555055667700
+;; 131:0065555505555555007665550005555500575655000057560005675700000050
+;; 132:5555555055556000555555005556700056565500657500005757500000500000
+;; 133:0000050000057575000057560055656500076655005555550006555505555555
+;; 134:0500000075765000657500005565750055555000555667005555555055555600
 ;; 135:5555555555555555655565656565656575757575757575750505050500050005
 ;; 136:5000500050505050575757575757575756565656565655565555555555555555
 ;; 137:0005000000550000055550000555550005555550555555555555555555555555
@@ -1322,6 +1369,12 @@
 ;; 151:5555555005555555555555555555555055555555055555505555555555555555
 ;; 152:5555555555555555555555555555555555555555555555555555555505550050
 ;; 153:5505550055555555555555555555555555555555555555555555555555555555
+;; 154:0555555505555555555555550555555555555555555555550555555555555555
+;; 155:5555555555555555555555505555555055555555555555555555555055555555
+;; 156:5500555055555555555555505555555555555555555555505555555555555555
+;; 157:0500505555555555555555550555555505555555555555555555555505555555
+;; 158:5555555555555555055555555555555555555555055555555555555505550055
+;; 159:5555555055555555555555555555555055555550555555555555555555050050
 ;; </TILES>
 
 ;; <SPRITES>
