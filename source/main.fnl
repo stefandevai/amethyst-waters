@@ -39,6 +39,17 @@
       (> (+ object.x object.w) +width+)
       (> (+ object.y object.h) +height+)))
 
+;; Applies a parallax with a factor and a initial position p0
+(fn parallax [p0 factor axis]
+  (if (= axis :x) (+ p0 (* *cam*.x factor))
+      (= axis :y) (+ p0 (* *cam*.y factor))))
+
+;; Draws a sprite that loops in the x and y axis
+(fn loop-spr [id x y w h pfactor ?colorkey]
+  (spr id (- (% (parallax x pfactor :x) (+ 240 (* w 8))) (* w 8))
+          (- (% (parallax y pfactor :y) (+ 136 (* h 8))) (* h 8)) 
+          (or ?colorkey 0) 1 0 0 w h))
+
 ;; Shortcut for math.random
 (fn r [a b]
   (math.random a b))
@@ -186,6 +197,7 @@
                        :scale 1
                        :lifetime 0 ; Time lift alive
                        :sprite 0   ; Sprite id
+                       :dspl 0 ; Random displacement
                        :speed { :x 0 :y 0 } } )
 
   (tset *particle*
@@ -199,41 +211,42 @@
   (tset *bubble-particle*
         :update
         (fn [self]
-            (inc self.x (* self.speed.x (sin (* *tick* 0.1)) 3 *dt*))
-            (inc self.y (* self.speed.y *dt*))
+            (inc self.x (* self.speed.x (sin (+ (* *tick* 0.1) self.dspl)) 3 *dt*))
+            (inc self.y (* (- self.speed.y *cam*.speedy) *dt*))
 
             (var id 19)
-            (if (< self.lifetime 50)
-                (set id 33)
-                (< self.lifetime 100)
-                (set id 32)
-                (< self.lifetime 400)
-                (set id 16)
-                (< self.lifetime 700)
+            (if (< self.lifetime 700)
                 (set id 17)
-                (< self.lifetime 1000)
+                (< self.lifetime 1600)
                 (set id 18))
-            (spr id self.x self.y 15 self.scale)))
+            (loop-spr id self.x self.y 1 1 0.8 15)))
 
   (global *pixel-particle* (deepcopy *particle*))
   (tset *pixel-particle*
         :update
         (fn [self]
-            (inc self.x (* self.speed.x *dt*))
-            (inc self.y (* self.speed.y *dt*))
-            (pix self.x self.y 11)))
+          12 11 10 8 6
+            (var color 11)
+            (if (< self.lifetime 300)
+                (set color 6)
+                (< self.lifetime 600)
+                (set color 8))
+            (inc self.x (* (- self.speed.x *cam*.speedx) *dt*))
+            (inc self.y (* (- self.speed.y *cam*.speedy) *dt*))
+            (pix self.x self.y color)))
 
   (global *particle-types* { :bubble *bubble-particle* :pixel *pixel-particle* })
 
   (global *emitter* { :x 0 :y 0 ; Emitter position
                       :sprites [ 0 ] ; Which sprites use for particles
-                      :emition-speed 10 ; At which rate particles are emitted (miliseconds)
+                      :emition-delay 10 ; At which rate particles are emitted (miliseconds)
                       :elapsed-since-emition 0 ; How much time has passed since last emission
                       :pos-range { :xmin 0 :xmax 0 :ymin 0 :ymax 0 } ; Variation of particle position in relation to the emiter's
                       :speed-range { :xmin -100 :xmax 100 :ymin -100 :ymax 100 } ; Variation of particle speed
                       :lifetime-range { :min 500 :max 1000 } ; Variation of particle's lifetime in ms
                       :type :bubble ; Particle type
                       :modifier nil ; Optional emitter modifier function
+                      :particle-modifier nil ; Optional particle modifier function
                       :particles [] }) ; Table to hold particles
   
   (tset *emitter*
@@ -246,13 +259,16 @@
           (set particle.speed.y (r self.speed-range.ymin self.speed-range.ymax))
           (set particle.sprite (. self.sprites (r 1 (length self.sprites))))
           (set particle.lifetime (r self.lifetime-range.min self.lifetime-range.max))
+
+          (when self.particle-modifier
+            (self:particle-modifier particle))
           
           (table.insert self.particles (+ (length self.particles) 1) particle)))
 
   (tset *emitter*
         :update
         (fn [self]
-          (if (>= self.elapsed-since-emition self.emition-speed)
+          (if (>= self.elapsed-since-emition self.emition-delay)
               (do (self:emit)
                   (set self.elapsed-since-emition 0))
               (inc self.elapsed-since-emition (* *dt* 1000)))
@@ -266,17 +282,26 @@
                 (table.remove self.particles i)
                 (dec particle.lifetime (* *dt* 1000))))))
 
+  (tset *emitter*
+        :clear
+        (fn [self]
+          (each [i v (ipairs self.particles)]
+            (trace i)
+            (table.remove self.particles i))))
+
   (global *bubble-emitter* (deepcopy *emitter*))
-  (set *bubble-emitter*.sprites [16])
-  (set *bubble-emitter*.emition-speed 100)
+  (set *bubble-emitter*.emition-delay 300)
   (set *bubble-emitter*.type :bubble)
-  (set *bubble-emitter*.lifetime-range { :min 2500 :max 3000 })
+  (set *bubble-emitter*.lifetime-range { :min 3300 :max 3800 })
   (set *bubble-emitter*.speed-range { :xmin -30 :xmax 30 :ymin -40 :ymax -20 })
+  (set *bubble-emitter*.particle-modifier
+       (fn [particle]
+         (set particle.dspl (r 0 100))))
   
-  (global *test-emitter* (deepcopy *bubble-emitter*))
-  (set *test-emitter*.x 120)
-  (set *test-emitter*.y 136)
-  (set *test-emitter*.pos-range { :xmin -120 :xmax 120 :ymin 0 :ymax 0 })
+  (global *bg-bubbles* (deepcopy *bubble-emitter*))
+  (set *bg-bubbles*.x 120)
+  (set *bg-bubbles*.y 136)
+  (set *bg-bubbles*.pos-range { :xmin -120 :xmax 120 :ymin 0 :ymax 0 })
 
   (global *motor-emitter* (deepcopy *emitter*))
   (set *motor-emitter*.pos-range { :xmin 0 :xmax 0 :ymin 2 :ymax 4 })
@@ -285,7 +310,7 @@
   (set *motor-emitter*.modifier
        (fn [emitter]
          (set emitter.x (+ *player*.x 1))
-         (set emitter.y (+ *player*.y 1)))))
+         (set emitter.y (+ *player*.y 2)))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Cave wall1                                                                                   ;;;
@@ -310,8 +335,12 @@
 (fn generate-cave-walls [from to f]
   (local dspl (r 3 100)) ; Displacement factor
   (for [i from to 1]
-    (let [h (f i)
-          h2 (f (+ i dspl))]
+    (let [;h (f i)
+          h 1
+          ;h2 (math.max 0 (math.min (- 10 h) (f (+ i dspl))))]
+          h2 1]
+          ;h2 (f (+ i dspl))]
+      ;(trace (.. "h " h ", h2 " h2))
       ;; Set bottom walls
       (local bottom-head (r 137 141))
       (mset i (- 16 h) bottom-head)
@@ -343,7 +372,6 @@
       ;(incg ymax))
     ;(global ymax (math.round (* (perlinf *last-block-generated* *cam*.x) 6)))
     (global ymax (r 1 6))
-    ;(trace ymax)
 
     ;; Select a noise function
     (var noisef sn)
@@ -744,16 +772,6 @@
 ;;; Background                                                                                   ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
-;; Applies a parallax with a factor and a initial position p0
-(fn parallax [p0 factor axis]
-  (if (= axis :x) (+ p0 (* *cam*.x factor))
-      (= axis :y) (+ p0 (* *cam*.y factor))))
-
-;; Draws a sprite that loops in the x and y axis
-(fn loop-spr [id x y w h pfactor]
-  (spr id (- (% (parallax x pfactor :x) (+ 240 (* w 8))) (* w 8))
-          (- (% (parallax y pfactor :y) (+ 136 (* h 8))) (* h 8)) 0 1 0 0 w h))
-
 ;; Draws cave background with a parallax factor pfactor
 (fn draw-cave-bg [pfactor]
   (loop-spr 11 230 120 2 4 pfactor)
@@ -769,7 +787,7 @@
 ;; Draws background decoration
 (fn draw-bg []
   (draw-cave-bg 0.1)
-  (*test-emitter*:update))
+  (*bg-bubbles*:update))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Game                                                                                       ;;;
