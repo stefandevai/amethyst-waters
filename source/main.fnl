@@ -966,7 +966,7 @@
   (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
   (update-amethysts)
   (*player*:draw)
-  ;(update-enemies)
+  (update-enemies)
   (draw-hud))
 
 (fn update-camera []
@@ -997,7 +997,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  ;(update-enemy-spawner)
+  (update-enemy-spawner)
   (update-game-debug))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1224,7 +1224,7 @@
 
   (init-icosahedron)
 
-  ;(music 0)
+  (music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1242,7 +1242,7 @@
 
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
-                  :speedx 50 :speedy 0 
+                  :speedx 20 :speedy 0 
                   :max-speed 300
                   :offsetx 0 :offsety 0 })
 
