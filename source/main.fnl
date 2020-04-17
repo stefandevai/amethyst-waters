@@ -290,7 +290,6 @@
         :clear
         (fn [self]
           (each [i v (ipairs self.particles)]
-            (trace i)
             (table.remove self.particles i))))
 
   (global *bubble-emitter* (deepcopy *emitter*))
@@ -675,7 +674,6 @@
   ;; Hurts player 
   (tset *player*
         :hurt (fn [self damage]
-                ;(trace *cam*.speedx)
                 (if (not= self.state :hurt)
                     (do (dec self.health damage)
                         (if (<= self.health 0)
@@ -916,15 +914,10 @@
   (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
   (update-amethysts)
   (*player*:draw)
-  ;(update-enemies)
+  (update-enemies)
   (draw-hud))
 
 (fn update-camera []
-  ;;; Increase camera speed
-  ;(when (= (% *tick* 100) 0)
-    ;(trace "up")
-    ;(inc *cams*.x))
-
   ;; Move camera
   (set *cam*.ox (- *cam*.ox (* *cam*.speedx *dt*)))
   (set *cam*.x (+ *cam*.ox *cam*.offsetx))
@@ -952,7 +945,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  ;(update-enemy-spawner)
+  (update-enemy-spawner)
   (update-game-debug))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1175,7 +1168,7 @@
 
   (init-icosahedron)
 
-  ;(music 0)
+  (music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1193,7 +1186,7 @@
 
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
-                  :speedx 50 :speedy 0 
+                  :speedx 20 :speedy 0 
                   :max-speed 300
                   :offsetx 0 :offsety 0 })
 
@@ -1219,13 +1212,10 @@
   (spr 288 5 13 0)
   (print (.. "x " *player*.points) 16 13 12)
 
-  ;(trace highscore-flag)
-  ;(trace (pmem 0))
   ;; Get highscore from persistent memory
   (if (or (> *player*.points (pmem 0)) highscore-flag)
       (do (pmem 0 *player*.points)
           (global highscore-flag true)
-          (trace (pmem 0))
           (print "Congratulations! New highscore." (* 7 8) (* 7 8) 12 true 1))
       (and (> (pmem 0) 0) (= highscore-flag false))
       (print (.. "Your highest score is " (pmem 0) " amethysts!" ) (* 3 8) (+ (* 12 7) 6) 12))
@@ -1464,6 +1454,6 @@
 ;; </TRACKS>
 
 ;; <PALETTE>
-;; 000:1a1a38fa0c36bbcc5204fa0400ff000c0c10202d518e2e913c405591142c5d8161599dcaf2f4f60cff083c1865f661ba
+;; 000:141428fa0c36bbcc5204fa0400ff000c0c10202d518e2e913c405591142c5d8161599dcaf2f4f60cff08201834f661ba
 ;; </PALETTE>
 
