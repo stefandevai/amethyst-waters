@@ -396,9 +396,6 @@
     (for [i from to 1]
       (let [(v t tr r br b bl l tl) (get-surroundings-if-collidable i j)]
         (when (= v 128)
-              ;; Remove widow blocks
-          ;(if (and (or (and (= br 0) (> bl 0)) (and (= bl 0) (> br 0))) (= t 0) (> j 0))
-              ;(mset i j 0)
               ;; Add stalagmites
               (if (and (= l t r 0) (> j 0))
               ;(mset i j (rvalue *stalagmites*))
@@ -414,7 +411,6 @@
               (mset i j 136)
               ;; Add top-right normal border
               (and (= t 0) (= r 0) (not= l 0) (not= b 0) (> j 0))
-              ;(and (= t 0) (= r 0))
               (mset i j 156)
               ;; Add top-left normal border
               (and (= t 0) (= l 0) (not= r 0) (not= t 0) (> j 0))
