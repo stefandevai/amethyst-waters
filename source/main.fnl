@@ -329,7 +329,7 @@
   (global ymin 0)
 
   ;; Maximum height of a wall
-  (global ymax 1))
+  (global ymax 2))
 
 ;; Perlin noise height generation
 (fn pn [y]
@@ -348,15 +348,15 @@
       (global last-h2 h2)
 
       ;; Set bottom walls
-      (local bottom-head (r 137 141))
-      (mset i (- 17 h1) bottom-head)
-      (for [j (- 18 h1) 17 1]
+      ;(local bottom-head (r 137 141))
+      ;(mset i (- 17 h1) bottom-head)
+      (for [j (- 17 h1) 17 1]
         (mset i j 128))
       
       ;; Set top walls
-      (local top-head (r 144 150))
-      (mset i (- h2 1) top-head)
-      (for [j 0 (- h2 2) 1]
+      ;(local top-head (r 144 150))
+      ;(mset i (- h2 1) top-head)
+      (for [j 0 (- h2 1) 1]
         (mset i j 128)))))
 
 ;; Sets all map tiles from block to 0
@@ -364,6 +364,10 @@
   (for [i (* block 30) (- (* (+ block 1) 30) 1) 1]
     (for [j 0  16]
       (mset i j 0))))
+
+;; Adds decoration to a map block
+(fn decorate-block [block]
+  (trace "hey"))
 
 ;; Generates cave walls if needed
 (fn update-cave-walls []
@@ -377,7 +381,14 @@
                ;(= (% *last-block-generated* 2) 0))
       ;(incg ymax))
     ;(global ymax (math.round (* (perlinf *last-block-generated* *cam*.x) 6)))
-    (global ymax (r 1 13))
+
+    ;; 40% of possibility to increase wall size
+    ;; 60% of decrease
+    (global n (r 0 100))
+    (if (and (< ymax 9) (<= n 50))
+        (incg ymax)
+        (> ymax 2)
+        (decg ymax))
 
     ;; Select a noise function
     (var noisef sn)
@@ -388,7 +399,8 @@
     (when (> from 7) (clear-map-block (% from 8)))
     (generate-cave-walls (* (% from 8) 30)
                          (- (* (+ (% from 8) 1) 30) 1)
-                         noisef)))
+                         noisef)
+    (decorate-block *last-block-generated*)))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Animation                                                                                    ;;;
@@ -1125,7 +1137,7 @@
 
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
-                  :speedx 20 :speedy 0 
+                  :speedx 100 :speedy 0 
                   :max-speed 300
                   :offsetx 0 :offsety 0 })
 
