@@ -54,6 +54,10 @@
 (fn r [a b]
   (math.random a b))
 
+;; Get a random value from a list
+(fn rvalue [l]
+  (. l (r 1 (length l))))
+
 ;; Returns sign of a number
 (fn sign [x] (if (> x 0) 1 (< x 0) -1 0))
 
@@ -322,8 +326,13 @@
 
   ;; Last top wall height
   (global last-h2 0)
+
   ;; Last bottom wall height
   (global last-h1 0)
+
+  ;; Sprite ids for sprites used in map generation
+  (global *stalagmites* [136 137 138 139 140 141])
+  (global *stalagtites* [135 144 145 146 147 148 149 150])
 
   ;; Minimum height of a wall
   (global ymin 0)
@@ -365,25 +374,69 @@
     (for [j 0  16]
       (mset i j 0))))
 
+;; Gets surroundings if block at x y is collidable.
+;; For this game I chose arbitrarily that every tile
+;; with id > 127 is collidable.
+(fn get-surroundings-if-collidable [x y]
+  (let [v (mget x y)]
+    (when (> v 127)
+      (values v                           ; value
+              (mget x (- y 1))            ; top
+              (mget (+ x 1) (- y 1))      ; top-right
+              (mget (+ x 1) y)            ; right
+              (mget (+ x 1) (+ y 1))      ; bottom-right
+              (mget x (+ y 1))            ; bottom
+              (mget (- x 1) (+ y 1))      ; bottom-left
+              (mget (- x 1) y)            ; left
+              (mget (- x 1) (- y 1))))))  ; top-left
+
 ;; Adds decoration to a map block
-(fn decorate-block [block]
-  (trace "hey"))
+(fn decorate-block [from to]
+  (for [j 0 17 1]
+    (for [i from to 1]
+      (let [(v t tr r br b bl l tl) (get-surroundings-if-collidable i j)]
+        (when (= v 128)
+              ;; Set pointy top/bottoms
+          (if (and (or (and (= br 0) (> bl 0)) (and (= bl 0) (> br 0))) (= t 0) (> j 0))
+              (mset i j 0)
+              (and (= l t r 0) (> j 0))
+              ;(mset i j (rvalue *stalagmites*))
+              (mset i j 136)
+              (and (= r t 0) (> j 0))
+              (mset i j 134)
+              (and (= l t 0) (> j 0))
+              (mset i j 133)
+              (and (= t 0) (= l 133) (= r 134) (> j 0))
+              (mset i j 136)
+              (and (= t 0) (> j 0))
+              (mset i j 153)
+
+              (and (= l b r 0) (< j 17))
+              ;(mset i j (rvalue *stalagtites*))
+              (mset i j 135)
+              (and (= r b 0) (< j 17))
+              (mset i j 132)
+              (and (= l b 0) (< j 17))
+              (mset i j 131)
+              (and (= b 0) (< j 17))
+              (mset i j 152)
+
+              (and (= r 0) (not= l 0) (> j 0))
+              (mset i j 130)
+              (and (= l 0) (not= r 0) (> j 0))
+              (mset i j 129)
+              (and (= l r 0))
+              (mset i j 151)))))))
 
 ;; Generates cave walls if needed
 (fn update-cave-walls []
   ;; Generate walls for next block
   (local current-block (// (math.abs *cam*.x) 240))
   (local from (+ current-block 1))
-  ;; Generate 4 blocks if cam is 2 blocks away from last generated block
+  ;; Generate a block if cam is 1 block away from last generated block
   (when (< *last-block-generated* from)
-    ;; Increase wall height
-    ;(when (and (< ymax 6)
-               ;(= (% *last-block-generated* 2) 0))
-      ;(incg ymax))
-    ;(global ymax (math.round (* (perlinf *last-block-generated* *cam*.x) 6)))
-
-    ;; 40% of possibility to increase wall size
-    ;; 60% of decrease
+    ;; 50% of possibility to increase wall size
+    ;; 50% of decrease
     (global n (r 0 100))
     (if (and (< ymax 9) (<= n 50))
         (incg ymax)
@@ -397,10 +450,13 @@
 
     (global *last-block-generated* from)
     (when (> from 7) (clear-map-block (% from 8)))
-    (generate-cave-walls (* (% from 8) 30)
-                         (- (* (+ (% from 8) 1) 30) 1)
-                         noisef)
-    (decorate-block *last-block-generated*)))
+
+    ;; Add from/to which tile to start generation
+    (global from-tile (* (% from 8) 30))
+    (global to-tile (- (* (+ (% from 8) 1) 30) 1))
+
+    (generate-cave-walls from-tile to-tile noisef)
+    (decorate-block from-tile to-tile)))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Animation                                                                                    ;;;
@@ -1137,13 +1193,14 @@
 
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
-                  :speedx 100 :speedy 0 
+                  :speedx 50 :speedy 0 
                   :max-speed 300
                   :offsetx 0 :offsety 0 })
 
   (global *last-block-generated* 0)
   (global *max-wall-y* 6)
   (generate-cave-walls 0 29 pn)
+  (decorate-block 0 29)
 
   (global *shake* 0)
 
@@ -1272,6 +1329,9 @@
 ;; 148:5555555555555555555555555555555505555550055555000005550000005000
 ;; 149:5555555555555555555555500555555000555550005555000005500000005000
 ;; 150:5555555555555555555555550555555005555500005550000055500000055000
+;; 151:5555555005555555555555555555555055555555055555505555555555555555
+;; 152:5555555555555555555555555555555555555555555555555555555505550050
+;; 153:5505550055555555555555555555555555555555555555555555555555555555
 ;; </TILES>
 
 ;; <SPRITES>
