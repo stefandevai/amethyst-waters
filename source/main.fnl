@@ -313,10 +313,18 @@
          (set emitter.y (+ *player*.y 2)))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
-;;; Cave wall1                                                                                   ;;;
+;;; Cave walls                                                                                   ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
 (fn init-cave-walls []
+  ;; Displacement for perlin noise generation
+  (global *pdspl* {:h1 (r 0 1000) :h2 (r 0 1000)})
+
+  ;; Last top wall height
+  (global last-h2 0)
+  ;; Last bottom wall height
+  (global last-h1 0)
+
   ;; Minimum height of a wall
   (global ymin 0)
 
@@ -325,7 +333,7 @@
 
 ;; Perlin noise height generation
 (fn pn [y]
-  (math.round (+ ymin (*  (perlinf y ymax) (- ymax ymin)))))
+  (math.round (+ ymin (* (perlinf y ymax) (- ymax ymin)))))
 
 ;; Simple noise height generation
 (fn sn [y]
@@ -333,24 +341,22 @@
 
 ;; Generate cave walls
 (fn generate-cave-walls [from to f]
-  (local dspl (r 3 100)) ; Displacement factor
   (for [i from to 1]
-    (let [;h (f i)
-          h 1
-          ;h2 (math.max 0 (math.min (- 10 h) (f (+ i dspl))))]
-          h2 1]
-          ;h2 (f (+ i dspl))]
-      ;(trace (.. "h " h ", h2 " h2))
+    (let [h1 (math.min (- 15 last-h2) (f (+ i *pdspl*.h1 *last-block-generated*)))
+          h2 (math.min (- 15 last-h1) (- 14 h1) (f (+ i *pdspl*.h2 *last-block-generated*)))]
+      (global last-h1 h1)
+      (global last-h2 h2)
+
       ;; Set bottom walls
       (local bottom-head (r 137 141))
-      (mset i (- 16 h) bottom-head)
-      (for [j (- 17 h) 17 1]
+      (mset i (- 17 h1) bottom-head)
+      (for [j (- 18 h1) 17 1]
         (mset i j 128))
       
       ;; Set top walls
       (local top-head (r 144 150))
-      (mset i (- ymax (- h2 1)) top-head)
-      (for [j 0 (- ymax (- h2 0)) 1]
+      (mset i (- h2 1) top-head)
+      (for [j 0 (- h2 2) 1]
         (mset i j 128)))))
 
 ;; Sets all map tiles from block to 0
@@ -371,7 +377,7 @@
                ;(= (% *last-block-generated* 2) 0))
       ;(incg ymax))
     ;(global ymax (math.round (* (perlinf *last-block-generated* *cam*.x) 6)))
-    (global ymax (r 1 6))
+    (global ymax (r 1 13))
 
     ;; Select a noise function
     (var noisef sn)
@@ -837,15 +843,12 @@
 
 (fn draw-game []
   (cls)
-
-  ;(draw-bg)
-
   (local txcam (// (math.abs *cam*.x) 8))
   (local tycam (// (math.abs *cam*.y) 8))
   (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
   (update-amethysts)
-  (update-enemies)
   (*player*:draw)
+  ;(update-enemies)
   (draw-hud))
 
 (fn update-camera []
@@ -860,8 +863,8 @@
   (set *cam*.y (+ *cam*.oy *cam*.offsety)))
 
 (fn update-game []
-  (update-cave-walls)
   (update-camera)
+  (update-cave-walls)
 
   ;; Shake screen if receives damage
   (when (> *shake* 0)
@@ -881,7 +884,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  (update-enemy-spawner)
+  ;(update-enemy-spawner)
   (update-game-debug))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
