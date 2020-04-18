@@ -490,12 +490,6 @@
     ;; Add from/to which tile to start generation
     (global from-tile (* (% from 8) 30))
     (global to-tile (- (* (+ (% from 8) 1) 30) 1))
-
-    ;(trace from)
-    ;(trace from-tile)
-    ;(trace (- from-tile 30))
-    ;(trace "----------------")
-
     (generate-cave-walls from-tile to-tile noisef)
 
     ;; Decorate 1 block before
@@ -503,12 +497,6 @@
         (decorate-block 210 239)
         (decorate-block (- from-tile 30) (- to-tile 30)))))
   
-  ;(when (< (- *last-block-generated* 2) (- from 1))
-    ;(trace "Here")
-    ;(global from-tile (* (% from 8) 30))
-    ;(global to-tile (- (* (+ (% from 8) 1) 30) 1))
-    ;(decorate-block from-tile to-tile)))
-
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Animation                                                                                    ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -538,9 +526,9 @@
   ;; List of shot types and their respective sprites
   (global *shot-types* [ :basic-shot :thick-shot :blue-shot ])
 
-  (global *basic-shot* { :x 0 :y 0 :w 5 :h 1 :speed 2 :damage 2 :spr 261 })
-  (global *thick-shot* { :x 0 :y 0 :w 8 :h 2 :speed 5 :damage 5 :spr 272 })
-  (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 :flip 0 })
+  (global *basic-shot* { :x 0 :y 0 :w 5 :h 1 :speed 2 :damage 2 :spr 261 :rot 0 })
+  (global *thick-shot* { :x 0 :y 0 :w 8 :h 2 :speed 5 :damage 5 :spr 272 :rot 0 })
+  (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 :flip 0 :rot 0 })
 
   ;; Implement update and draw methods
   (tset *basic-shot*
@@ -552,7 +540,7 @@
   (tset *basic-shot*
         ;; Draws shot with a specific sprite and position
         :draw (fn [self]
-                (spr self.spr self.x self.y 0)))
+                (spr self.spr self.x self.y 0 1 0 self.rot)))
 
 
   ;; Implement update and draw methods
@@ -565,7 +553,7 @@
   (tset *thick-shot*
         ;; Draws shot with a specific sprite and position
         :draw (fn [self]
-                (spr self.spr self.x self.y 0)))
+                (spr self.spr self.x self.y 0 1 0 self.rot)))
 
   ;; Implement update and draw methods
   (tset *blue-shot*
@@ -578,10 +566,10 @@
   (tset *blue-shot*
         ;; Draws shot with a specific sprite and position
         :draw (fn [self]
-                (spr self.spr self.x self.y 0 1 self.flip))))
+                (spr self.spr self.x self.y 0 1 self.flip self.rot))))
 
 ;; Creates a shot of a certain type
-(fn create-shot [type]
+(fn create-shot [type axis]
   (if (= type :basic-shot)
       (do (sfx 3 50 -1 3 7)
           (deepcopy *basic-shot*))
@@ -592,11 +580,27 @@
 
       (= type :blue-shot)
       (do (sfx 3 20 -1 3 8 3)
-          (deepcopy *blue-shot*))
+          (if (= axis :y)
+            (do (local shot1 (deepcopy *blue-shot*))
+                (local shot2 (deepcopy *blue-shot*))
+                (set shot1.speedy shot1.speedx)
+                (set shot1.rot 1)
+                (set shot1.speedx 0)
+                (set shot2.speedy (- 0 shot2.speedx))
+                (set shot2.rot 3)
+                (set shot2.flip 1)
+                (set shot2.speedx 0)
+                [shot1 shot2])
+            
+            (deepcopy *blue-shot*)))
 
       (= type :energy-shot)
       (do (sfx 3 20 -1 3 8 3)
-          (deepcopy *energy-shot*))
+          (local shot (deepcopy *energy-shot*))
+          (when (= axis :y)
+            (set shot.speedy shot.speedx)
+            (set shot.speedx 0))
+          shot)
 
       (= type :triple-shot)
       (do (sfx 7 50 -1 3 8 3)
@@ -631,7 +635,7 @@
            :state :none
            :hurt-timer 0
            :points 0
-           :current-shot :triple-shot
+           :current-shot :blue-shot
            :emitter (deepcopy *motor-emitter*)
          })
 
@@ -676,9 +680,13 @@
                     (set fx (- (+ self.x self.vx) (math.ceil *cam*.x)))
                     (set fy (- (+ self.y self.vy) *cam*.y)))
 
-                  ;; Shoot if Z is pressed
-                  (when (btnp 4 10 10)
-                    (self:shoot))
+                  ;; Shoot forward if Z is pressed
+                  (if (and (btnp 4 10 10) (not (btn 5)))
+                      (self:shoot :x)
+
+                      ;; Shoot up and down if X is pressed
+                      (btnp 5 10 10)
+                      (self:shoot :y))
 
                   ;; Positioning
                   (set self.x (+ self.x self.vx))
@@ -715,8 +723,8 @@
     (table.insert *player*.shots (+ (length *player*.shots) 1) shot))  
 
   (tset *player*
-        :shoot (fn [self]
-                (let [shot-obj (create-shot self.current-shot)]
+        :shoot (fn [self axis]
+                (let [shot-obj (create-shot self.current-shot axis)]
                   ;; If multiple shots are shot at once, store each one
                   (if (> (length shot-obj) 1)
                       (each [i shot (pairs shot-obj)]
@@ -869,7 +877,7 @@
          (and (> self.y *player*.y) (> self.x *player*.x))
          (set self.speedy -35))
      (inc self.y (* self.speedy *dt*))
-     (dec self.x (* self.speed *dt*))))
+     (dec self.x (* self.speedx *dt*))))
 
   (global *anglerfish* (deepcopy *enemy*))
   (set *anglerfish*.w 32)
@@ -996,7 +1004,11 @@
    (fn [self]
        (when ( = (% (+ *tick* (math.round self.x)) 70) 0)
          (var ball (spawn-enemy :energy-ball self.x self.y))
-         (set ball.animator.animations.moving (- self.x *player*.x))
+         (set ball.animator.animations.moving [ 264 308 309 308 ])
+         (set ball.animator.speed 50)
+         (set ball.damage 5)
+         (set ball.w 3)
+         (set ball.h 3)
          (set ball.speedx (- self.x *player*.x))
          (set ball.speedy (- *player*.y self.y)))
        (dec self.x (* *cam*.speedx *dt*))))
@@ -1014,7 +1026,6 @@
       ;; Tries to find a bottom free location
       (for [j 10 16 1]
         (when (and (> (mget i j) 127) (= (mget i (- j 1)) 0))
-          (trace camtile)
           (spawn-enemy :snail
                        (- (* (- i camtile -1) 8) (% (math.abs *cam*.x) 8))
                        (+ (* (- j 1) 8) 4))
@@ -1092,9 +1103,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (fn update-game-debug []
-  (when (btnp 5)
-    (spawn-snail)))
-    ;(spawn-enemy :test-fish 272 52)))
+  (when (btnp 6)
+    ;(spawn-snail)))
+    (spawn-enemy :anglerfish 272 52)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1565,7 +1576,7 @@
 ;; 004:0000c0000000a000000cc220002cc288ca2228aa0a2228880022222200022220
 ;; 005:622cc00000000000000000000000000000000000000000000000000000000000
 ;; 007:677ff00000000000000000000000000000000000000000000000000000000000
-;; 008:7170000019100000717000000000000000000000000000000000000000000000
+;; 008:0100000019100000010000000000000000000000000000000000000000000000
 ;; 009:00000000000ff00000f77f000f7778f00f7788f000f88f00000ff00000000000
 ;; 010:0000001000000190000011600009999000111960099966900212196006666600
 ;; 016:6662cccc06222ccc000000000000000000000000000000000000000000000000
@@ -1596,6 +1607,8 @@
 ;; 049:000000000000bcc0000cbcc000bcbcb00abbbb00aaaaa000066a000000600000
 ;; 050:6aabbccc66aabccc6aabbccc0000000000000000000000000000000000000000
 ;; 051:000000cc0000bbcc00abbcbbaaaabb006aaa0000660000000000000000000000
+;; 052:1110000019100000111000000000000000000000000000000000000000000000
+;; 053:1010000009000000101000000000000000000000000000000000000000000000
 ;; 060:0000000000000006000000660000066600a0666600a6666600a66a6600a66a66
 ;; 061:6666666666666666666666666666666666666166a6661111a6666166a6666666
 ;; 062:6666600066666600666666666666666666666666666666666666666666666666
