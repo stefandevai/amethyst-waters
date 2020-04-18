@@ -1064,11 +1064,11 @@
 
   (set *snail*.update
    (fn [self]
-       (when ( = (% (+ *tick* (math.round self.x)) 70) 0)
+       (when ( = (% (+ *tick* (math.round self.y)) 70) 0)
          (var ball (spawn-enemy :energy-ball self.x self.y))
          (set ball.animator.animations.moving [ 264 308 309 308 ])
          (set ball.animator.speed 50)
-         (set ball.damage 5)
+         (set ball.damage 12)
          (set ball.w 3)
          (set ball.h 3)
          (set ball.speedx (- self.x *player*.x))
@@ -1096,8 +1096,9 @@
 
 ;; Spawns a snail
 (fn spawn-snail []
+  (trace (// *cam*.x 8))
   (when (< ymax 9)
-    (local camtile (math.abs (math.round (// *cam*.x 8))))
+    (local camtile (% (math.abs (math.round (// *cam*.x 8))) 240))
     (var found-tile false)
     ;; Search next map block
     (for [i (+ camtile 30) (+ camtile 60) 1]
@@ -1150,29 +1151,56 @@
 ;; Spaws enemies according to various parameters
 (fn init-enemy-spawners []
   (global *spawners* [])
-  (global *spawner* { :enemy :simple-fish :delay 30 :duration 1000 :finished false })
+  (global *spawner* { :enemy :simple-fish :delay 30 :duration 10 :finished false })
 
   (set *spawner*.update
-   (fn [self delay ?x ?y ?enemy]
-     (when (= (% *tick* delay) 0)
+   (fn [self ?delay ?x ?y ?enemy]
+     (when (= (% *tick* (or ?delay self.delay)) 0)
        (spawn-enemy (or ?enemy self.enemy) ?x ?y))
      (if (< self.duration 0)
          (set self.finished true)
-         (dec self.duration (* *dt* 1000)))))
+         (dec self.duration *dt*))))
 
   (global *fish-spawner* (deepcopy *spawner*))
-  (global *sfish-spawner* (deepcopy *spawner*))
-  (set *sfish-spawner*.enemy :stronger-fish)
+  (global *snail-spawner* (deepcopy *spawner*))
+  (set *snail-spawner*.delay 250)
+  (set *snail-spawner*.duration 10)
+  (set *snail-spawner*.update
+   (fn [self ?delay]
+     (when (= (% *tick* (or delay self.delay)) 0)
+       ;(trace "spawning")
+       (spawn-snail))
+     (if (< self.duration 0)
+         (set self.finished true)
+         (dec self.duration *dt*))))
   
+  (global *easy-spawners* [ *fish-spawner* *snail-spawner* ])
   ;; Tick counter for waves
   (global *wave-counter* 0))
 
+;; Cam pos range
+(fn camr [from to]
+  (and (> *cam*.x to) (< *cam*.x from)))
+
 (fn update-enemy-spawners []
   ;(trace *cam*.x)
+  (when (and (< *cam*.speedx *cam*.max-speed) (= (% *tick* 400) 0))
+    (inc *cam*.speedx))
 
   (if (= *enemy-wave* :easy-wave)
-      (when (= (length *enemy-pool*) 0)
-        (spawn-enemy :anglerfish 300 52))
+      (do (when (< (length *spawners*) 2)
+            ;(trace *cam*.x)
+            (table.insert *spawners* (deepcopy (. *easy-spawners* (r 1 (length *easy-spawners*))))))
+          (each [k spawner (pairs *spawners*)]
+            (spawner:update)
+            (when spawner.finished
+              ;(trace *cam*.y)
+              (tset *spawners* k nil))))
+      ;(do (when (= (% *tick* 200) 0)
+            ;(incg *wave-counter* 9))
+          ;(if (or (camr -900 -2000) (camr 0 -400))
+              ;(do (*fish-spawner*:update (- 100 *wave-counter*))
+                  ;(*snail-spawner*:update 250))))
 
       (= *enemy-wave* :medium-wave)
       (when (= (length *enemy-pool*) 0)
@@ -1185,7 +1213,6 @@
       ;; First wave
       (= *enemy-wave* :first-wave)
       (do (when (and (< *cam*.x -100) (= (% *tick* 200) 0))
-            (trace "increasing")
             (incg *wave-counter* 9))
           (if (and (< *cam*.x -30) (> *cam*.x -100))
               (*fish-spawner*:update 80 nil (+ 68 (r -40 40)))
@@ -1193,7 +1220,7 @@
               (do (*fish-spawner*:update (- 100 *wave-counter*))
                   (*fish-spawner*:update (- 120 *wave-counter*) nil nil :stronger-fish))
               (< *cam*.x -700)
-              (do (set *cam*.speedx 50)
+              (do 
                   (global *wave-counter* 0)
                   (global *enemy-wave* :easy-wave))))))
 
@@ -1224,9 +1251,9 @@
 
 (fn update-game-debug []
   (when (btnp 6)
-    ;(spawn-snail)))
+    (spawn-snail)))
     ;(spawn-enemy :test-fish 220 68)))
-    (spawn-enemy :anglerfish 270 53)))
+    ;(spawn-enemy :anglerfish 270 53)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1553,7 +1580,7 @@
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
                   :speedx 20 :speedy 0 
-                  :max-speed 300
+                  :max-speed 200
                   :offsetx 0 :offsety 0 })
 
   (global *last-block-generated* 0)
@@ -1562,7 +1589,7 @@
   (decorate-block 14 59)
 
   (global *shake* 0)
-  (global *enemy-wave* :first-wave)
+  (global *enemy-wave* :easy-wave)
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
