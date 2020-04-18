@@ -631,7 +631,7 @@
            :state :none
            :hurt-timer 0
            :points 0
-           :current-shot :triple-shot
+           :current-shot :basic-shot
            :emitter (deepcopy *motor-emitter*)
          })
 
@@ -791,64 +791,128 @@
 ;;; Enemies                                                                                      ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
+;; Spawns a single enemy given a type and an optional y position value
+(fn spawn-enemy [type ?x ?y]
+  (let [enemy (if (= type :simple-fish)    (deepcopy *simple-fish*)
+                  (= type :stronger-fish)  (deepcopy *stronger-fish*)
+                  (= type :energy-ball)  (deepcopy *energy-ball*)
+                  (= type :test-fish)  (deepcopy *anglerfish*))]
+    (tset enemy :type type)
+    (tset enemy :x (or ?x (+ +width+ 8.0)))
+    (tset enemy :y (or ?y (r 0 (- +height+ enemy.h))))
+    (table.insert *enemy-pool* enemy)))
+
 (fn init-enemies []
   ;; List of enemy types 
   (global *enemy-types* [ :simple-fish :stronger-fish ])
+  (global *enemy* { :w 8 :h 8 :speed 50 :damage 2.0 :health 2.0 :points 1 })
+  (set *enemy*.animator
+       { :current-animation :moving
+         :current-index 1
+         :elapsed 0
+         :speed 150
+         :animations 
+           { :moving nil }})
 
-  (global *simple-fish* { :w 7.0 :h 3.0 :speed 50.0 :damage 2.0 :health 2.0 :points 1 })
+  (set *enemy*.update
+       (fn [self]
+          (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
+          (inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
+
+  (set *enemy*.draw
+       (fn [self]
+         (animate self)
+         (spr (get-animation-frame self.animator) self.x self.y 0)))
+
+  (global *simple-fish* (deepcopy *enemy*))
+  (set *simple-fish*.w 7)
+  (set *simple-fish*.h 3)
+  (set *simple-fish*.animator.animations.moving [ 292 293 294 293 292 295 296 295 ])
+
+  (global *stronger-fish* (deepcopy *enemy*))
+  (set *stronger-fish*.speed 30)
+  (set *stronger-fish*.damage 5)
+  (set *stronger-fish*.health 4)
+  (set *stronger-fish*.points 1)
 
   ;; Modyfies position according to a function
-  (tset *simple-fish*
-        :update
+  (set *stronger-fish*.update
         (fn [self]
           (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
           (inc self.y (* 0.5 (sin (* 0.05 (+ *tick* self.y)))))))
 
-  (tset *simple-fish*
-        :animator {
-          :current-animation :moving
-          :current-index 1
-          :elapsed 0
-          :speed 150
-          :animations {
-            ;:moving [ 273 274 275 276 275 274 ]
-            :moving [ 292 293 294 293 292 295 296 295 ]
-          }
-        })
+  (set *stronger-fish*.animator.animations.moving [ 273 274 275 276 275 274 ])
 
-  (global *stronger-fish* { :w 8.0 :h 8.0 :speed 30.0 :damage 5.0 :health 4.0 :points 2 })
+  (global *energy-ball* (deepcopy *enemy*))
+  (set *energy-ball*.animator.animations.moving [ 265 ])
 
-  ;; Modyfies position according to a function
-  (tset *stronger-fish*
-        :update
-        (fn [self]
-          (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
-          (inc self.y (* 0.5 (sin (* 0.05 (+ *tick* self.y)))))))
+  (global *anglerfish* (deepcopy *enemy*))
+  (set *anglerfish*.w 32)
+  (set *anglerfish*.h 32)
+  (set *anglerfish*.damage 40)
+  (set *anglerfish*.health 200)
+  (set *anglerfish*.state :arriving)
+  (set *anglerfish*.reposition-flag false)
+  ;; Current attack
+  (set *anglerfish*.cattack nil)
+  ;; Attack frame
+  (set *anglerfish*.aframe 0)
+  (set *anglerfish*.attack-types [ :energy ])
 
-  (tset *stronger-fish*
-        :animator {
-          :current-animation :moving
-          :current-index 1
-          :elapsed 0
-          :speed 150
-          :animations {
-            :moving [ 273 274 275 276 275 274 ]
-          }
-        })
+  (set *anglerfish*.draw
+       (fn [self]
+         (spr 300 self.x self.y 0 1 0 0 4 4)))
+
+  (set *anglerfish*.move
+       (fn [self]
+         (dec self.y (* 1 (sin (* 0.04 *tick*))))))
+
+  (set *anglerfish*.reset-attack
+   (fn [self]
+     (set self.aframe 0)
+     (set self.reposition-flag false)))
+
+  (set *anglerfish*.attack
+   (fn [self]
+     (when (not self.cattack)
+       (set self.cattack (. self.attack-types (r 1 (length self.attack-types)))))
+     (if (not self.reposition-flag)
+           (if (< self.y 50)
+             (inc self.y (* 20 *dt*))
+             (> self.y 54)
+             (dec self.y (* 20 *dt*))
+             (set self.reposition-flag true))
+     
+         (= self.cattack :energy)
+         (do (self:move)
+             (when (= (% self.aframe 25) 0)
+               (sfx 3 20 -1 3 8 3)
+               (spawn-enemy :energy-ball self.x self.y))
+             (when (= (% self.aframe 500) 0)
+               (self:reset-attack)
+               (set self.state :moving))))))
+     ;(inc self.aframe)))
+
+  (set *anglerfish*.update
+   (fn [self]
+     (inc self.aframe)
+     (if (= self.state :arriving)
+         (do (when (< self.x 200)
+               (set self.state :moving))
+             (dec self.x (* 50 *dt*)))
+
+         (= self.state :attack)
+         (self:attack)
+     
+         (= self.state :moving)
+         (do (when (= (% self.aframe 200) 0)
+               (set self.cattack nil)
+               (self:reset-attack)
+               (set self.state :attack))
+             (dec self.y (* 1 (sin (* 0.04 *tick*))))))))
 
   ;; Pool containing all enemies
-  (global *enemy-pool* {}))
-
-;; Spawns a single enemy given a type and an optional y position value
-(fn spawn-enemy [type ?y]
-  (let [enemy (if (= type :simple-fish)    (deepcopy *simple-fish*)
-                  (= type :stronger-fish)  (deepcopy *stronger-fish*))]
-    (tset enemy :type type)
-    (tset enemy :x (+ +width+ 8.0))
-    (if (not ?y)
-        (tset enemy :y (r 0 (- +height+ enemy.h)))
-        (tset enemy :y ?y))
-    (table.insert *enemy-pool* enemy)))
+  (global *enemy-pool* []))
 
 ;; Destroy enemy with a certain index from *enemy-pool*
 (fn destroy-enemy [index]
@@ -860,8 +924,7 @@
   (each [index enemy (pairs *enemy-pool*)]
 
     (enemy:update)
-    (animate enemy)
-    (spr (get-animation-frame enemy.animator) enemy.x enemy.y 0)
+    (enemy:draw)
 
     ;; Deal with player-enemy collision
     (when (bcollides? *player* enemy)
@@ -882,15 +945,18 @@
       ;; Player killed enemy
       (when (<= enemy.health 0)
         (sfx 4 12 -1 3 6)
-        (for [i 0 enemy.points 1]
+        (for [i 0 (r 0 enemy.points) 1]
           (spawn-amethyst enemy.x enemy.y)))
       (destroy-enemy index))))
 
 ;; Spaws enemies according to various parameters
 (fn update-enemy-spawner []
-  (when (and (> *tick* 90) (= (% *tick* 15) 0))
-    ;; Spawn a random enemy
-    (spawn-enemy (. *enemy-types* (r 1 (length *enemy-types*))))))
+  ;; First wave
+  ;(trace *cam*.x)
+  (when (and (< *tick* 0) (= (% *tick* 30) 0))
+    (spawn-enemy :test-fish)))
+  ;(when (and (< *cam*.x 0) (= (% *tick* 120) 0))
+    ;(spawn-enemy :test-fish)))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Background                                                                                   ;;;
@@ -919,8 +985,7 @@
 
 (fn update-game-debug []
   (when (btnp 5)
-    (*player*:hurt)
-    (spawn-enemy :simple-fish)))
+    (spawn-enemy :test-fish 272 52)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1213,6 +1278,8 @@
   (when (btnp 4)
     (*bg-bubbles*:clear)
     (set *bg-bubbles*.emition-delay 1000)
+    ;; Time when game session is started
+    (global *initial-time* (time))
     (global *game-state* "game")))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1224,7 +1291,7 @@
 
   (init-icosahedron)
 
-  (music 0)
+  ;(music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1239,6 +1306,7 @@
   (global *dt* 0.0)
   (global *previous-time* (time))
   (global *tick* 0)
+  (global *elapsed* 0)
 
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
@@ -1248,8 +1316,8 @@
 
   (global *last-block-generated* 0)
   (global *max-wall-y* 6)
-  (generate-cave-walls 30 59 pn)
-  (decorate-block 30 59)
+  (generate-cave-walls 14 59 pn)
+  (decorate-block 14 59)
 
   (global *shake* 0)
 
@@ -1283,6 +1351,8 @@
     (for [i 0 7]
       (clear-map-block i))
     (init)
+    ;; Time when game session is started
+    (global *initial-time* (time))
     (global *game-state* "game")))
 
 
@@ -1295,7 +1365,9 @@
 
     (if (= *game-state* "game")
         (do (update-game)
-            (draw-bg))
+            (draw-bg)
+            ;; Time elapsed since the start of the game session
+            (global *elapsed* (- *previous-time* *initial-time*)))
 
         (= *game-state* "menu")
         (update-menu) 
