@@ -648,7 +648,7 @@
            :state :none
            :hurt-timer 0
            :points 0
-           :current-shot :triple-shot
+           :current-shot :blue-shot
            :emitter (deepcopy *motor-emitter*)
          })
 
@@ -835,7 +835,7 @@
                   (= type :snake) (deepcopy *snake*)
                   (= type :snail) (deepcopy *snail*)
                   (= type :guard) (deepcopy *guard*)
-                  (= type :test-fish) (deepcopy *shooter-fish*))]
+                  (= type :test-fish) (deepcopy *snake*))]
     (tset enemy :type type)
     (tset enemy :x (or ?x (+ +width+ 8.0)))
     (tset enemy :y (or ?y (r 0 (- +height+ enemy.h))))
@@ -889,10 +889,24 @@
   (set *stronger-fish*.animator.animations.moving [ 273 274 275 276 275 274 ])
 
   ;; Shooter fish
-  (global *stronger-fish* (deepcopy *stronger-fish*))
-  (set *stronger-fish*.speedx 50)
-  (set *stronger-fish*.health 15)
-  (set *shooter-fish*.animator.animations.moving [ 273 274 275 276 275 274 ])
+  (global *shooter-fish* (deepcopy *stronger-fish*))
+  (set *shooter-fish*.speedx 20)
+  (set *shooter-fish*.health 15)
+  (set *shooter-fish*.damage 10)
+  (set *shooter-fish*.animator.animations.moving [ 269 270 271 285 271 270 ])
+  (set *shooter-fish*.update
+        (fn [self]
+           (when (= (% (+ *tick* 40) 40) 0)
+             (trace "ball")
+             (var ball (spawn-enemy :energy-ball self.x self.y))
+             (set ball.animator.animations.moving [ 264 308 309 308 ])
+             (set ball.animator.speed 50)
+             (set ball.damage 7)
+             (set ball.w 3)
+             (set ball.h 3)
+             (set ball.speedx (+ *cam*.speedx 80)))
+          (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))
+          (inc self.y (* 0.5 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (global *energy-ball* (deepcopy *enemy*))
   (set *energy-ball*.animator.animations.moving [ 265 ])
@@ -1014,18 +1028,33 @@
              (self:move)))))
 
   (global *snake* (deepcopy *enemy*))
+  (set *snake*.length 30)
   (set *snake*.animator.animations.moving [ 368 374 371 374 ])
   (set *snake*.animator.speedx 100)
   (set *snake*.speedx 40)
+  (set *snake*.health 100)
   (set *snake*.draw
    (fn [self]
-       (animate self)
-       (spr (get-animation-frame self.animator) self.x self.y 0 1 0 0 3 1)))
+     (var bindex 1) ; body index
+     (local aindex (if (< (% *tick* 32) 8) 0
+                       (< (% *tick* 32) 16) 2
+                       (< (% *tick* 32) 24) 1
+                       2)) ; animation index
+
+     (spr (+ 368 aindex) self.x self.y 0)
+     (for [i 1 self.length 1]
+       (spr (+ 371 aindex) (+ self.x (* bindex 8)) self.y 0)
+       (inc bindex))
+     (spr (+ 374 aindex) (+ self.x (* bindex 8)) self.y 0)))
+       ;(animate self)
+       ;(spr (get-animation-frame self.animator) self.x self.y 0 1 0 0 3 1)))
 
   (set *snake*.update
     (fn [self]
-       (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))
-       (inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
+       (when (< self.w (* (+ self.length 2) 8))
+         (set self.w (* (+ self.length 2) 8)))
+       (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))))
+       ;(inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (global *snail* (deepcopy *enemy*))
   (set *snail*.animator.animations.moving [ 266 ])
@@ -1116,7 +1145,7 @@
       ;; Player killed enemy
       (when (<= enemy.health 0)
         (sfx 4 12 -1 3 6)
-        (spawn-goods enemy.x enemy.y enemy.points))
+        (spawn-goods (math.max enemy.x 60) (+ enemy.y (/ enemy.h 2)) enemy.points))
       (destroy-enemy index))))
 
 ;; Spaws enemies according to various parameters
@@ -1632,6 +1661,9 @@
 ;; 008:0100000019100000010000000000000000000000000000000000000000000000
 ;; 009:00000000000ff00000f77f000f7778f00f7788f000f88f00000ff00000000000
 ;; 010:0000001000000190000011600009999000111960099966900212196006666600
+;; 013:000000000000000000b0b0000bbbbbb0b1bbbbb0bbbbbb00b000000000000000
+;; 014:000000000000000000b0b0b00bbbbbb0b1bbbbb0bbbbbbb0b000000000000000
+;; 015:000000000000000000b0b00b0bbbbbbbb1bbbbbbbbbbbbbbb000000b00000000
 ;; 016:6662cccc06222ccc000000000000000000000000000000000000000000000000
 ;; 017:0000000000000000001010000111111012111110111111001000000000000000
 ;; 018:0000000000000000001010100111111012111110111111101000000000000000
@@ -1643,6 +1675,7 @@
 ;; 024:1119900011199000000000000000000000000000000000000000000000000000
 ;; 025:00f0000007670000f6f6f0000767000000f00000000000000000000000000000
 ;; 026:0606600006060000060600000006000006000000000600000000000000000000
+;; 029:000000000000000000b0b0b00bbbbbb0b1bbbbb0bbbbbbb00b0000b000000000
 ;; 032:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
 ;; 033:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
 ;; 034:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
@@ -1679,15 +1712,15 @@
 ;; 094:6666600066660000666000006000000000000000000000000000000000000000
 ;; 096:000f0000000700000000700000000f0001100070011000700077770000000000
 ;; 097:0f00f70000700000007000000007110000001100000000000000000000000000
-;; 112:0000000000200000012111001111111000000111000000110000000000000000
-;; 113:0000000000000000001111000111111011100111110000110000000000000000
-;; 114:0000000000000000001110000111120011100020110000020000000000000000
-;; 115:0000000000000000000000110020011101211110111111000000000000000000
+;; 112:0002000000120000011111000000111000000111000000110000000000000000
+;; 113:0000000000000000000000110000011100002110000121000011100000000000
+;; 114:0000000000000000000020000001211100111111000000000000000000000000
+;; 115:0000000000000000001111000111111011100111110000110000000000000000
 ;; 116:0000000000000000110000111110011101111110001111000000000000000000
-;; 117:0000000000000000110000021110002001111200001110000000000000000000
-;; 118:0000000000000000002000000121111011111111000000110000000000000000
-;; 119:0000000000000000011100001111100111011111100011100000000000000000
-;; 120:0000000000000000110000021111122001110000000000000000000000000000
+;; 117:0000000000000000000011101001111111111011111100010000000000000000
+;; 118:0000000000000000001110000111120011100020110000020000000000000000
+;; 119:0000000000000000110000021110002001111200001110000000000000000000
+;; 120:0000000000000000000000000000000011011220111100000000000000000000
 ;; 128:000000000000000000000000000a222200028888000288880002888800028888
 ;; 129:0000000000000000000000002222222288888888888888888888888888888888
 ;; 130:0000000000000000000000002222a00088882000888820008888200088882000
