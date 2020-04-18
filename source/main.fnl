@@ -996,6 +996,7 @@
    (fn [self]
        (when ( = (% (+ *tick* (math.round self.x)) 70) 0)
          (var ball (spawn-enemy :energy-ball self.x self.y))
+         (set ball.animator.animations.moving (- self.x *player*.x))
          (set ball.speedx (- self.x *player*.x))
          (set ball.speedy (- *player*.y self.y)))
        (dec self.x (* *cam*.speedx *dt*))))
