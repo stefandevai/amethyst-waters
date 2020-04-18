@@ -776,35 +776,45 @@
 ;;; Amethysts                                                                                    ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
-(fn init-amethysts []
-  (global amethysts []))
+(fn init-goods []
+  (global goods []))
 
-(fn spawn-amethyst [x y]
+(fn spawn-good [type x y]
   ;; Absolute position
-  ;(local absx (math.round (- x *cam*.x)))
-  ;(local absy (math.round (- y *cam*.y)))
-  (let [amethyst { :x (r (- (math.round x) 10) (+ (math.round x) 10))
+  (let [good { :x (r (- (math.round x) 10) (+ (math.round x) 10))
                    :y (r (- (math.round y) 10) (+ (math.round y) 10))
                    :w 8 :h 8 :collected? false
+                   :type type
                    :rfactor (r 0 100)}] ; Random factor for the sin period when updating
+    (table.insert goods (+ (length goods) 1) good)))
 
-    (table.insert amethysts (+ (length amethysts) 1) amethyst)))
+(fn spawn-goods [x y points]
+  (local rn (r 0 100))
+  (when (and (< rn 30) (< *player*.health 100))
+    (spawn-good :life x y))
+  (for [i 0 (r 0 points) 1]
+    (spawn-good :amethyst x y)))
 
-(fn update-amethysts []
-  (each [index ame (pairs amethysts)]
-    (dec ame.x (* *cam*.speedx *dt*))
-    ;; Draw amethyst
-    (spr 288 ame.x (+ ame.y (* (sin (* (+ *tick* ame.rfactor) 0.05)) 2)) 0)
+(fn update-goods []
+  (each [index good (pairs goods)]
+    (dec good.x (* *cam*.speedx *dt*))
+
+    (match good.type
+      :amethyst (spr 288 good.x (+ good.y (* (sin (* (+ *tick* good.rfactor) 0.05)) 2)) 0)
+      :life (spr 291 good.x (+ good.y (* (sin (* (+ *tick* good.rfactor) 0.05)) 2)) 0))
 
     ;; Collect amethysts if collision occurs
-    (when (bcollides? *player* ame)
-      (set ame.collected? true)
-      (sfx 5 70 -1 3 8 3)
-      (inc *player*.points))
+    (when (bcollides? *player* good)
+      (set good.collected? true)
+      (match good.type
+        :amethyst (do (sfx 5 70 -1 3 8 3)
+                  (inc *player*.points))
+        :life (do (sfx 8 64 -1 3 8 -2)
+                  (inc *player*.health (math.min 20 (- 100 *player*.health))))))
 
     ;; Remove when out of bounds
-    (when (or (< (+ ame.x ame.w) 0) ame.collected?)
-      (table.remove amethysts index))))
+    (when (or (< (+ good.x good.w) 0) good.collected?)
+      (table.remove goods index))))
 
 ;(fn collect-amethyst []
   ;)
@@ -1078,18 +1088,19 @@
       ;; Player killed enemy
       (when (<= enemy.health 0)
         (sfx 4 12 -1 3 6)
-        (for [i 0 (r 0 enemy.points) 1]
-          (spawn-amethyst enemy.x enemy.y)))
-      (destroy-enemy index))))
+        (spawn-goods enemy.x enemy.y enemy.points)
+      (destroy-enemy index)))))
 
 ;; Spaws enemies according to various parameters
 (fn update-enemy-spawner []
   ;; First wave
   ;(trace *cam*.x)
-  (when (and (< *tick* 0) (= (% *tick* 30) 0))
-    (spawn-enemy :test-fish)))
-  ;(when (and (< *cam*.x 0) (= (% *tick* 120) 0))
+  ;(when (and (< *tick* 0) (= (% *tick* 30) 0))
     ;(spawn-enemy :test-fish)))
+  (when (and (< *cam*.x 0) (= (% *tick* 20) 0))
+    (spawn-enemy :stronger-fish)))
+  ;(when (and (< *cam*.x 0) (= (% *tick* 120) 0))
+    ;(spawn-enemy :stronger-fish)))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Background                                                                                   ;;;
@@ -1163,7 +1174,7 @@
   (local txcam (// (math.abs *cam*.x) 8))
   (local tycam (// (math.abs *cam*.y) 8))
   (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
-  (update-amethysts)
+  (update-goods)
   (*player*:draw)
   (update-enemies)
   (draw-hud))
@@ -1429,7 +1440,7 @@
   (init-player)
   (init-cave-walls)
   (init-enemies)
-  (init-amethysts)
+  (init-goods)
   
   ;; Set border color
   (poke 0x03FF8 5)
@@ -1607,6 +1618,7 @@
 ;; 032:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
 ;; 033:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
 ;; 034:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
+;; 035:abbba000b9b9b000b999b000b9b9b000abbba000000000000000000000000000
 ;; 036:717777f077770000077000000000000000000000000000000000000000000000
 ;; 037:7177770077770000077000000000000000000000000000000000000000000000
 ;; 038:7177700077770000077000000000000000000000000000000000000000000000
@@ -1681,7 +1693,7 @@
 ;; 005:3a053a153a342a342a5d2a661a311a831a711ae01ac66ad5faeffaecfafcfaf0fa6efa70fa80fa40faa0fa40fa81faa1fa8efa23fa80fa60fa60fa80670000000000
 ;; 006:420022001200320042005200520062006200620062007200720082008200820082009200a200a200b200c200c200c200d200d200e200e200e200f200570000000000
 ;; 007:30e04050201010e0300000a0007030c030e0006010c0208030b030b090e0a0a0b000c000c0a0d000d0a0e060e020e000c0d0e000f000f000f000f000482000000000
-;; 008:080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800080008000800309000000000
+;; 008:b900a900292029c059708940c9c0f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900f900550000000000
 ;; 009:090009000900090009000900090009000900090009000900090009000900090009000900090009000900090009000900090009000900090009000900304000000000
 ;; 010:0a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a000a00300000000000
 ;; 011:0b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b000b00300000000000
