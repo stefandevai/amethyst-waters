@@ -833,7 +833,8 @@
                   (= type :anglerfish)  (deepcopy *anglerfish*)
                   (= type :snake)  (deepcopy *snake*)
                   (= type :snail)  (deepcopy *snail*)
-                  (= type :test-fish)  (deepcopy *snail*))]
+                  (= type :guard)  (deepcopy *guard*)
+                  (= type :test-fish)  (deepcopy *guard*))]
     (tset enemy :type type)
     (tset enemy :x (or ?x (+ +width+ 8.0)))
     (tset enemy :y (or ?y (r 0 (- +height+ enemy.h))))
@@ -978,9 +979,6 @@
      (trace self.health)
      (inc self.aframe)
 
-     ;(when (< *cam*.speedx 50)
-       ;(set *cam*.speedx 50))
-
      (when (and (< self.health 1000) (> self.asfactor 0.5))
        (set self.asfactor 0.8))
 
@@ -1039,6 +1037,22 @@
          (set ball.h 3)
          (set ball.speedx (- self.x *player*.x))
          (set ball.speedy (- *player*.y self.y)))
+       (dec self.x (* *cam*.speedx *dt*))))
+
+  (global *guard* (deepcopy *enemy*))
+  (set *guard*.animator.animations.moving [ 304 ])
+
+  (set *guard*.update
+   (fn [self]
+       (when ( = (% (+ *tick* (math.round self.x)) 60) 0)
+         (var ball (spawn-enemy :energy-ball self.x self.y))
+         (set ball.animator.animations.moving [ 264 308 309 308 ])
+         (set ball.animator.speed 50)
+         (set ball.damage 7)
+         (set ball.w 3)
+         (set ball.h 3)
+         (set ball.speedx 40))
+       (set self.y (+ 68 (* 50 (sin (* 0.03 *tick*)))))
        (dec self.x (* *cam*.speedx *dt*))))
 
   ;; Pool containing all enemies
@@ -1135,8 +1149,8 @@
 
 (fn update-game-debug []
   (when (btnp 6)
-    (spawn-snail)))
-    ;(spawn-enemy :anglerfish 272 52)))
+    ;(spawn-snail)))
+    (spawn-enemy :test-fish 220 68)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1635,7 +1649,7 @@
 ;; 045:0000000066666660000000660000000000000000000000000000000000666666
 ;; 046:0000000000000000600000006600000006000000066000000660000066660000
 ;; 047:0000000000000000000000000000000000000000000000000000000000000660
-;; 048:0000000000000000070550700775577005755750055555500500005000000000
+;; 048:000000000f0000f00f0660f007766770067cb760066666600b0000b000000000
 ;; 049:000000000000bcc0000cbcc000bcbcb00abbbb00aaaaa000066a000000600000
 ;; 050:6aabbccc66aabccc6aabbccc0000000000000000000000000000000000000000
 ;; 051:000000cc0000bbcc00abbcbbaaaabb006aaa0000660000000000000000000000
