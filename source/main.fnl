@@ -798,7 +798,10 @@
                   (= type :stronger-fish)  (deepcopy *stronger-fish*)
                   (= type :energy-ball)  (deepcopy *energy-ball*)
                   (= type :follower)  (deepcopy *follower*)
-                  (= type :test-fish)  (deepcopy *anglerfish*))]
+                  (= type :anglerfish)  (deepcopy *anglerfish*)
+                  (= type :snake)  (deepcopy *snake*)
+                  (= type :snail)  (deepcopy *snail*)
+                  (= type :test-fish)  (deepcopy *snail*))]
     (tset enemy :type type)
     (tset enemy :x (or ?x (+ +width+ 8.0)))
     (tset enemy :y (or ?y (r 0 (- +height+ enemy.h))))
@@ -895,7 +898,7 @@
   (set *anglerfish*.finish-attack
    (fn [self]
      (set self.aframe 0)
-     (set self.cattack :follow)
+     (set self.cattack nil)
      (set self.reposition-flag false)
      (set self.state :moving)))
 
@@ -968,9 +971,51 @@
                (set self.state :attack))
              (self:move)))))
 
+  (global *snake* (deepcopy *enemy*))
+  (set *snake*.animator.animations.moving [ 368 374 371 374 ])
+  (set *snake*.animator.speed 100)
+  (set *snake*.speed 40)
+  (set *snake*.draw
+   (fn [self]
+       (animate self)
+       (spr (get-animation-frame self.animator) self.x self.y 0 1 0 0 3 1)))
+
+  (set *snake*.update
+    (fn [self]
+       (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
+       (inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
+
+  (global *snail* (deepcopy *enemy*))
+  (set *snail*.animator.animations.moving [ 266 ])
+  (set *snail*.draw
+   (fn [self]
+       (animate self)
+       (spr (get-animation-frame self.animator) self.x self.y 0 1 0 0 1 2)))
+
+  (set *snail*.update
+   (fn [self]
+       (dec self.x (* *cam*.speedx *dt*))))
 
   ;; Pool containing all enemies
   (global *enemy-pool* []))
+
+;; Spawns a snail
+(fn spawn-snail []
+  (when (< ymax 9)
+    (local camtile (math.abs (math.round (// *cam*.x 8))))
+    (var found-tile false)
+    ;; Search next map block
+    (for [i (+ camtile 30) (+ camtile 60) 1]
+      ;; Tries to find a bottom free location
+      (for [j 10 16 1]
+        (when (and (> (mget i j) 127) (= (mget i (- j 1)) 0))
+          (trace camtile)
+          (spawn-enemy :snail
+                       (- (* (- i camtile -1) 8) (% (math.abs *cam*.x) 8))
+                       (+ (* (- j 1) 8) 4))
+          (set found-tile true)
+          (lua :break)))
+      (when found-tile (lua :break)))))
 
 ;; Destroy enemy with a certain index from *enemy-pool*
 (fn destroy-enemy [index]
@@ -1043,7 +1088,8 @@
 
 (fn update-game-debug []
   (when (btnp 5)
-    (spawn-enemy :test-fish 272 52)))
+    (spawn-snail)))
+    ;(spawn-enemy :test-fish 272 52)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1561,12 +1607,15 @@
 ;; 094:6666600066660000666000006000000000000000000000000000000000000000
 ;; 096:000f0000000700000000700000000f0001100070011000700077770000000000
 ;; 097:0f00f70000700000007000000007110000001100000000000000000000000000
-;; 112:0000000000000000000000000020000001211111111111110000000000000000
+;; 112:0000000000200000012111001111111000000111000000110000000000000000
 ;; 113:0000000000000000001111000111111011100111110000110000000000000000
 ;; 114:0000000000000000001110000111120011100020110000020000000000000000
 ;; 115:0000000000000000000000110020011101211110111111000000000000000000
 ;; 116:0000000000000000110000111110011101111110001111000000000000000000
 ;; 117:0000000000000000110000021110002001111200001110000000000000000000
+;; 118:0000000000000000002000000121111011111111000000110000000000000000
+;; 119:0000000000000000011100001111100111011111100011100000000000000000
+;; 120:0000000000000000110000021111122001110000000000000000000000000000
 ;; 128:000000000000000000000000000a222200028888000288880002888800028888
 ;; 129:0000000000000000000000002222222288888888888888888888888888888888
 ;; 130:0000000000000000000000002222a00088882000888820008888200088882000
