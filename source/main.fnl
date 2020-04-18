@@ -526,15 +526,16 @@
   ;; List of shot types and their respective sprites
   (global *shot-types* [ :basic-shot :thick-shot :blue-shot ])
 
-  (global *basic-shot* { :x 0 :y 0 :w 5 :h 1 :speed 2 :damage 2 :spr 261 :rot 0 })
-  (global *thick-shot* { :x 0 :y 0 :w 8 :h 2 :speed 5 :damage 5 :spr 272 :rot 0 })
+  (global *basic-shot* { :x 0 :y 0 :w 5 :h 1 :speedx 2 :speedy 0 :damage 2 :spr 261 :rot 0 })
+  (global *thick-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 5 :speedy 0 :damage 5 :spr 272 :rot 0 })
   (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 :flip 0 :rot 0 })
 
   ;; Implement update and draw methods
   (tset *basic-shot*
         ;; Updates a shot. Returns true if it's out of bounds, returns nil otherwise
         :update (fn [self]
-                  (inc self.x self.speed)
+                  (inc self.y self.speedy)
+                  (inc self.x self.speedx)
                   (out-of-bounds? self)))
         
   (tset *basic-shot*
@@ -547,7 +548,8 @@
   (tset *thick-shot*
         ;; Updates a shot. Returns true if it's out of bounds, returns nil otherwise
         :update (fn [self]
-                  (inc self.x self.speed)
+                  (inc self.y self.speedy)
+                  (inc self.x self.speedx)
                   (out-of-bounds? self)))
         
   (tset *thick-shot*
@@ -572,11 +574,21 @@
 (fn create-shot [type axis]
   (if (= type :basic-shot)
       (do (sfx 3 50 -1 3 7)
-          (deepcopy *basic-shot*))
+          (local shot (deepcopy *basic-shot*))
+          (when (= axis :y)
+            (set shot.rot 1)
+            (set shot.speedy shot.speedx)
+            (set shot.speedx 0))
+          shot)
 
       (= type :thick-shot)
       (do (sfx 3 30 -1 3 8 3)
-          (deepcopy *thick-shot*))
+          (local shot (deepcopy *thick-shot*))
+          (when (= axis :y)
+            (set shot.rot 1)
+            (set shot.speedy shot.speedx)
+            (set shot.speedx 0))
+          shot)
 
       (= type :blue-shot)
       (do (sfx 3 20 -1 3 8 3)
@@ -602,12 +614,13 @@
             (set shot.speedx 0))
           shot)
 
-      (= type :triple-shot)
+      (and (= type :triple-shot) (= axis :x))
       (do (sfx 7 50 -1 3 8 3)
           (local shot1 (deepcopy *blue-shot*))
           (set shot1.speedy 2)
           (set shot1.spr 307)
           (set shot1.flip 2)
+          (set shot1.damage 2)
           (local shot2 (deepcopy *blue-shot*))
           (local shot3 (deepcopy *blue-shot*))
           (set shot3.speedy -2)
@@ -635,7 +648,7 @@
            :state :none
            :hurt-timer 0
            :points 0
-           :current-shot :blue-shot
+           :current-shot :triple-shot
            :emitter (deepcopy *motor-emitter*)
          })
 
@@ -726,10 +739,11 @@
         :shoot (fn [self axis]
                 (let [shot-obj (create-shot self.current-shot axis)]
                   ;; If multiple shots are shot at once, store each one
-                  (if (> (length shot-obj) 1)
-                      (each [i shot (pairs shot-obj)]
-                        (store-shot shot))
-                      (store-shot shot-obj)))))
+                  (when shot-obj
+                    (if (> (length shot-obj) 1)
+                        (each [i shot (pairs shot-obj)]
+                          (store-shot shot))
+                        (store-shot shot-obj))))))
 
   ;; Hurts player 
   (tset *player*
