@@ -975,19 +975,23 @@
 
   (set *anglerfish*.update
    (fn [self]
-     ;(trace self.health)
+     (trace self.health)
      (inc self.aframe)
 
-     (when (< *cam*.speedx 50)
-       (set *cam*.speedx 50))
+     ;(when (< *cam*.speedx 50)
+       ;(set *cam*.speedx 50))
 
      (when (and (< self.health 1000) (> self.asfactor 0.5))
        (set self.asfactor 0.8))
 
      (if (= self.state :arriving)
-         (do (when (< self.x 200)
-               (set self.state :moving))
-             (dec self.x (* 60 *dt*)))
+         (if (< self.aframe 200)
+             (when (> *cam*.speedx 15) (set *cam*.speedx 15))
+             (do (when (< *cam*.speedx 50)
+                   (set *cam*.speedx 50))
+                 (when (< self.x 200)
+                   (set self.state :moving))
+                 (dec self.x (* 60 *dt*))))
 
          (= self.state :attack)
          (self:attack)
@@ -1083,22 +1087,24 @@
 
     ;; Destroy enemy if it's to the left of the screen or it has no more health
     (when (or (< (+ enemy.x enemy.w) -8.0)
+              (< enemy.y -50)
+              (> enemy.y (+ +height+ 50))
               (<= enemy.health 0))
 
       ;; Player killed enemy
       (when (<= enemy.health 0)
         (sfx 4 12 -1 3 6)
-        (spawn-goods enemy.x enemy.y enemy.points)
-      (destroy-enemy index)))))
+        (spawn-goods enemy.x enemy.y enemy.points))
+      (destroy-enemy index))))
 
 ;; Spaws enemies according to various parameters
 (fn update-enemy-spawner []
   ;; First wave
   ;(trace *cam*.x)
-  ;(when (and (< *tick* 0) (= (% *tick* 30) 0))
-    ;(spawn-enemy :test-fish)))
-  (when (and (< *cam*.x 0) (= (% *tick* 20) 0))
-    (spawn-enemy :stronger-fish)))
+  (when (and (< *tick* 0) (= (% *tick* 30) 0))
+    (spawn-enemy :test-fish)))
+  ;(when (and (< *cam*.x 0) (= (% *tick* 20) 0))
+    ;(spawn-enemy :stronger-fish)))
   ;(when (and (< *cam*.x 0) (= (% *tick* 120) 0))
     ;(spawn-enemy :stronger-fish)))
 
@@ -1129,8 +1135,8 @@
 
 (fn update-game-debug []
   (when (btnp 6)
-    ;(spawn-snail)))
-    (spawn-enemy :anglerfish 272 52)))
+    (spawn-snail)))
+    ;(spawn-enemy :anglerfish 272 52)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1618,7 +1624,7 @@
 ;; 032:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
 ;; 033:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
 ;; 034:00f000000ff70000ccf6f000076f000000f00000000000000000000000000000
-;; 035:abbba000b9b9b000b999b000b9b9b000abbba000000000000000000000000000
+;; 035:0cbb0000c1b1b000c111b000b1b1b000abbba0000aaa00000000000000000000
 ;; 036:717777f077770000077000000000000000000000000000000000000000000000
 ;; 037:7177770077770000077000000000000000000000000000000000000000000000
 ;; 038:7177700077770000077000000000000000000000000000000000000000000000
