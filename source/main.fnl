@@ -811,7 +811,7 @@
 (fn init-enemies []
   ;; List of enemy types 
   (global *enemy-types* [ :simple-fish :stronger-fish ])
-  (global *enemy* { :w 8 :h 8 :speed 50 :damage 2.0 :health 2.0 :points 1 })
+  (global *enemy* { :w 8 :h 8 :speedx 50 :speedy 0 :damage 2.0 :health 2.0 :points 1 })
   (set *enemy*.animator
        { :current-animation :moving
          :current-index 1
@@ -822,7 +822,8 @@
 
   (set *enemy*.update
        (fn [self]
-          (dec self.x (* self.speed *dt*))))
+          (inc self.y (* self.speedy *dt*))
+          (dec self.x (* self.speedx *dt*))))
 
   (set *enemy*.draw
        (fn [self]
@@ -835,11 +836,11 @@
   (set *simple-fish*.animator.animations.moving [ 292 293 294 293 292 295 296 295 ])
   (set *simple-fish*.update
        (fn [self]
-          (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
+          (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))
           (inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (global *stronger-fish* (deepcopy *enemy*))
-  (set *stronger-fish*.speed 30)
+  (set *stronger-fish*.speedx 30)
   (set *stronger-fish*.damage 5)
   (set *stronger-fish*.health 4)
   (set *stronger-fish*.points 1)
@@ -847,7 +848,7 @@
   ;; Modyfies position according to a function
   (set *stronger-fish*.update
         (fn [self]
-          (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
+          (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))
           (inc self.y (* 0.5 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (set *stronger-fish*.animator.animations.moving [ 273 274 275 276 275 274 ])
@@ -856,12 +857,11 @@
   (set *energy-ball*.animator.animations.moving [ 265 ])
   (set *energy-ball*.points 0)
   (set *energy-ball*.health 9999)
-  (set *energy-ball*.speed 130)
+  (set *energy-ball*.speedx 130)
   (set *energy-ball*.damage 20)
 
   (global *follower* (deepcopy *energy-ball*))
-  (set *follower*.speed 200)
-  (set *follower*.speedy 0)
+  (set *follower*.speedx 200)
   (set *follower*.update
    (fn [self]
      (if (and (< self.y *player*.y) (> self.x *player*.x))
@@ -925,7 +925,7 @@
                (set self.reposition-flag false))
              (when (= (% self.aframe 3) 0)
                (local ball (spawn-enemy :energy-ball self.x self.y))
-               (set ball.speed 500))
+               (set ball.speedx 500))
              (global *shake* 5)
              (when (= (% self.aframe 500) 0)
                (self:finish-attack)))
@@ -973,8 +973,8 @@
 
   (global *snake* (deepcopy *enemy*))
   (set *snake*.animator.animations.moving [ 368 374 371 374 ])
-  (set *snake*.animator.speed 100)
-  (set *snake*.speed 40)
+  (set *snake*.animator.speedx 100)
+  (set *snake*.speedx 40)
   (set *snake*.draw
    (fn [self]
        (animate self)
@@ -982,7 +982,7 @@
 
   (set *snake*.update
     (fn [self]
-       (dec self.x (* (+ self.speed *cam*.speedx) *dt*))
+       (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))
        (inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (global *snail* (deepcopy *enemy*))
@@ -994,6 +994,10 @@
 
   (set *snail*.update
    (fn [self]
+       (when ( = (% (+ *tick* (math.round self.x)) 70) 0)
+         (var ball (spawn-enemy :energy-ball self.x self.y))
+         (set ball.speedx (- self.x *player*.x))
+         (set ball.speedy (- *player*.y self.y)))
        (dec self.x (* *cam*.speedx *dt*))))
 
   ;; Pool containing all enemies
