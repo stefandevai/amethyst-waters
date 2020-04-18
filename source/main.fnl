@@ -648,7 +648,7 @@
            :state :none
            :hurt-timer 0
            :points 0
-           :current-shot :blue-shot
+           :current-shot :basic-shot
            :emitter (deepcopy *motor-emitter*)
          })
 
@@ -897,7 +897,6 @@
   (set *shooter-fish*.update
         (fn [self]
            (when (= (% (+ *tick* 40) 40) 0)
-             (trace "ball")
              (var ball (spawn-enemy :energy-ball self.x self.y))
              (set ball.animator.animations.moving [ 264 308 309 308 ])
              (set ball.animator.speed 50)
@@ -998,7 +997,7 @@
 
   (set *anglerfish*.update
    (fn [self]
-     (trace self.health)
+     ;(trace self.health)
      (inc self.aframe)
 
      (when (and (< self.health 1000) (> self.asfactor 0.5))
@@ -1138,8 +1137,8 @@
 
     ;; Destroy enemy if it's to the left of the screen or it has no more health
     (when (or (< (+ enemy.x enemy.w) -8.0)
-              (< enemy.y -50)
-              (> enemy.y (+ +height+ 50))
+              (< enemy.y -200)
+              (> enemy.y (+ +height+ 200))
               (<= enemy.health 0))
 
       ;; Player killed enemy
@@ -1149,15 +1148,54 @@
       (destroy-enemy index))))
 
 ;; Spaws enemies according to various parameters
-(fn update-enemy-spawner []
-  ;; First wave
+(fn init-enemy-spawners []
+  (global *spawners* [])
+  (global *spawner* { :enemy :simple-fish :delay 30 :duration 1000 :finished false })
+
+  (set *spawner*.update
+   (fn [self delay ?x ?y ?enemy]
+     (when (= (% *tick* delay) 0)
+       (spawn-enemy (or ?enemy self.enemy) ?x ?y))
+     (if (< self.duration 0)
+         (set self.finished true)
+         (dec self.duration (* *dt* 1000)))))
+
+  (global *fish-spawner* (deepcopy *spawner*))
+  (global *sfish-spawner* (deepcopy *spawner*))
+  (set *sfish-spawner*.enemy :stronger-fish)
+  
+  ;; Tick counter for waves
+  (global *wave-counter* 0))
+
+(fn update-enemy-spawners []
   ;(trace *cam*.x)
-  (when (and (< *tick* 0) (= (% *tick* 30) 0))
-    (spawn-enemy :test-fish)))
-  ;(when (and (< *cam*.x 0) (= (% *tick* 20) 0))
-    ;(spawn-enemy :stronger-fish)))
-  ;(when (and (< *cam*.x 0) (= (% *tick* 120) 0))
-    ;(spawn-enemy :stronger-fish)))
+
+  (if (= *enemy-wave* :easy-wave)
+      (when (= (length *enemy-pool*) 0)
+        (spawn-enemy :anglerfish 300 52))
+
+      (= *enemy-wave* :medium-wave)
+      (when (= (length *enemy-pool*) 0)
+        (spawn-enemy :anglerfish 300 52))
+
+      (= *enemy-wave* :hard-wave)
+      (when (= (length *enemy-pool*) 0)
+        (spawn-enemy :anglerfish 300 52))
+
+      ;; First wave
+      (= *enemy-wave* :first-wave)
+      (do (when (and (< *cam*.x -100) (= (% *tick* 200) 0))
+            (trace "increasing")
+            (incg *wave-counter* 9))
+          (if (and (< *cam*.x -30) (> *cam*.x -100))
+              (*fish-spawner*:update 80 nil (+ 68 (r -40 40)))
+              (and (< *cam*.x -100) (> *cam*.x -700))
+              (do (*fish-spawner*:update (- 100 *wave-counter*))
+                  (*fish-spawner*:update (- 120 *wave-counter*) nil nil :stronger-fish))
+              (< *cam*.x -700)
+              (do (set *cam*.speedx 50)
+                  (global *wave-counter* 0)
+                  (global *enemy-wave* :easy-wave))))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Background                                                                                   ;;;
@@ -1187,7 +1225,8 @@
 (fn update-game-debug []
   (when (btnp 6)
     ;(spawn-snail)))
-    (spawn-enemy :test-fish 220 68)))
+    ;(spawn-enemy :test-fish 220 68)))
+    (spawn-enemy :anglerfish 270 53)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1264,7 +1303,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  (update-enemy-spawner)
+  (update-enemy-spawners)
   (update-game-debug))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1497,6 +1536,7 @@
   (init-player)
   (init-cave-walls)
   (init-enemies)
+  (init-enemy-spawners)
   (init-goods)
   
   ;; Set border color
@@ -1522,6 +1562,7 @@
   (decorate-block 14 59)
 
   (global *shake* 0)
+  (global *enemy-wave* :first-wave)
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
