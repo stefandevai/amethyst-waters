@@ -826,15 +826,16 @@
 ;; Spawns a single enemy given a type and optionals x and y position values
 ;; Returns the enemy
 (fn spawn-enemy [type ?x ?y]
-  (let [enemy (if (= type :simple-fish)    (deepcopy *simple-fish*)
-                  (= type :stronger-fish)  (deepcopy *stronger-fish*)
-                  (= type :energy-ball)  (deepcopy *energy-ball*)
-                  (= type :follower)  (deepcopy *follower*)
-                  (= type :anglerfish)  (deepcopy *anglerfish*)
-                  (= type :snake)  (deepcopy *snake*)
-                  (= type :snail)  (deepcopy *snail*)
-                  (= type :guard)  (deepcopy *guard*)
-                  (= type :test-fish)  (deepcopy *guard*))]
+  (let [enemy (if (= type :simple-fish) (deepcopy *simple-fish*)
+                  (= type :stronger-fish) (deepcopy *stronger-fish*)
+                  (= type :shooter-fish) (deepcopy *shooter-fish*)
+                  (= type :energy-ball) (deepcopy *energy-ball*)
+                  (= type :follower) (deepcopy *follower*)
+                  (= type :anglerfish) (deepcopy *anglerfish*)
+                  (= type :snake) (deepcopy *snake*)
+                  (= type :snail) (deepcopy *snail*)
+                  (= type :guard) (deepcopy *guard*)
+                  (= type :test-fish) (deepcopy *shooter-fish*))]
     (tset enemy :type type)
     (tset enemy :x (or ?x (+ +width+ 8.0)))
     (tset enemy :y (or ?y (r 0 (- +height+ enemy.h))))
@@ -863,6 +864,7 @@
          (animate self)
          (spr (get-animation-frame self.animator) self.x self.y 0)))
 
+  ;; Simple fish
   (global *simple-fish* (deepcopy *enemy*))
   (set *simple-fish*.w 7)
   (set *simple-fish*.h 3)
@@ -872,19 +874,25 @@
           (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))
           (inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
 
+  ;; Stronger fish
   (global *stronger-fish* (deepcopy *enemy*))
   (set *stronger-fish*.speedx 30)
   (set *stronger-fish*.damage 5)
   (set *stronger-fish*.health 4)
   (set *stronger-fish*.points 1)
 
-  ;; Modyfies position according to a function
   (set *stronger-fish*.update
         (fn [self]
           (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))
           (inc self.y (* 0.5 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (set *stronger-fish*.animator.animations.moving [ 273 274 275 276 275 274 ])
+
+  ;; Shooter fish
+  (global *stronger-fish* (deepcopy *stronger-fish*))
+  (set *stronger-fish*.speedx 50)
+  (set *stronger-fish*.health 15)
+  (set *shooter-fish*.animator.animations.moving [ 273 274 275 276 275 274 ])
 
   (global *energy-ball* (deepcopy *enemy*))
   (set *energy-ball*.animator.animations.moving [ 265 ])
