@@ -1096,7 +1096,6 @@
 
 ;; Spawns a snail
 (fn spawn-snail []
-  (trace (// *cam*.x 8))
   (when (< ymax 9)
     (local camtile (% (math.abs (math.round (// *cam*.x 8))) 240))
     (var found-tile false)
@@ -1188,19 +1187,14 @@
     (inc *cam*.speedx))
 
   (if (= *enemy-wave* :easy-wave)
-      (do (when (< (length *spawners*) 2)
+      (do (trace (length *enemy-pool*)) (when (< (length *spawners*) 2)
             ;(trace *cam*.x)
             (table.insert *spawners* (deepcopy (. *easy-spawners* (r 1 (length *easy-spawners*))))))
           (each [k spawner (pairs *spawners*)]
             (spawner:update)
             (when spawner.finished
               ;(trace *cam*.y)
-              (tset *spawners* k nil))))
-      ;(do (when (= (% *tick* 200) 0)
-            ;(incg *wave-counter* 9))
-          ;(if (or (camr -900 -2000) (camr 0 -400))
-              ;(do (*fish-spawner*:update (- 100 *wave-counter*))
-                  ;(*snail-spawner*:update 250))))
+              (table.remove *spawners* k))))
 
       (= *enemy-wave* :medium-wave)
       (when (= (length *enemy-pool*) 0)
@@ -1589,7 +1583,7 @@
   (decorate-block 14 59)
 
   (global *shake* 0)
-  (global *enemy-wave* :easy-wave)
+  (global *enemy-wave* :first-wave)
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
