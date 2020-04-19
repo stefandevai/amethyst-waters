@@ -664,7 +664,7 @@
            { :moving [ 257 258 259 260 ]
              :hurt [ 257 256 258 256 259 256 260 256 ] }))
       (= *player*.current-shot :blue-shot)
-      (do (set *player*.target-points 20)
+      (do (set *player*.target-points 50)
           (set *player*.animator.animations
            { :moving [ 400 401 402 403 ]
              :hurt [ 400 256 401 256 402 256 403 256 ] }))
@@ -673,11 +673,6 @@
           (set *player*.animator.animations
            { :moving [ 416 417 418 419 ]
              :hurt [ 416 256 417 256 418 256 419 256 ] })))
-      ;(= *player*.current-shot :super-shot)
-      ;(do (set *player*.target-points nil)
-          ;(set *player*.animator.animations
-           ;{ :moving [ 432 433 434 435 ]
-             ;:hurt [ 432 256 433 256 434 256 435 256 ] })))
 
   ;; Updates player and player's shots (called on TIC)
   (tset *player*
@@ -1428,12 +1423,6 @@
           (spr 397 (+ x 16) y 0))
       (spr 393 (+ x 16) y 0)))
 
-  ;(if (has-element? *player*.available-shots :super-shot)
-      ;(if (= *player*.current-shot :super-shot)
-          ;(spr 391 (+ x 24) y 0)
-          ;(spr 398 (+ x 24) y 0))
-      ;(spr 394 (+ x 24) y 0)))
-
 (fn draw-hud []
   (spr 288 5 13 0)
   (if (> *player*.target-points 0)
@@ -1752,12 +1741,12 @@
   (local title-string "YOU CRASHED")
   ;(trace (length title-string))
   ;(print title-string 64 (* 3 8) 12 true 2)
-  (print title-string (- 240 (* (length title-string) 16)) (* 2 8) 12 true 2)
-  (print title-string (- (- 240 (* (length title-string) 16)) 1) (* 2 8) 12 true 2)
-  (print title-string (- 240 (* (length title-string) 16)) (- (* 2 8) 1) 12 true 2)
+  (print title-string (- 256 (* (length title-string) 16)) (* 2 8) 12 true 2)
+  (print title-string (- (- 256 (* (length title-string) 16)) 1) (* 2 8) 12 true 2)
+  (print title-string (- 256 (* (length title-string) 16)) (- (* 2 8) 1) 12 true 2)
 
-  (spr 288 24 21 0)
-  (print (.. "x " *player*.points) 34 21 12)
+  (spr 288 32 21 0)
+  (print (.. "x " *player*.points) 42 21 12)
 
   ;; Aquire triple shot
   (var middle-text [])
@@ -1771,16 +1760,10 @@
           (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
 
       ;; Aquire triple shot
-      (and (= *player*.target-points 20) (>= *player*.points 20))
+      (and (= *player*.target-points 50) (>= *player*.points 20))
       (do (when (not= (pmem 3) 1) (pmem 3 1))
           (set icon 390)
           (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
-
-      ;;; Aquire super shot
-      ;(and (= *player*.target-points 400) (>= *player*.points 400))
-      ;(do (when (not= (pmem 4) 1) (pmem 4 1))
-          ;(set icon 391)
-          ;(set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
 
       ;; Player didn't reach target points
       (< *player*.points *player*.target-points)
@@ -1796,8 +1779,8 @@
     (local width (print (. middle-text i) 0 -16))
     (print (. middle-text i) (// (- 240 width) 2) (+ 60 padding (* 8 (- i 1))) 15))
 
-  (print "Press Z to repair your submarine" 24 (+ (* 13 8) 6) 12)
-  (print "and try your luck again." (* 9 8) (+ (* 14 8) 6) 12)
+  (print "Press Z to test your skills again!" 32 (+ (* 13 8) 6) 12)
+  ;(print "and try your luck again." (* 9 8) (+ (* 14 8) 6) 12)
 
   (when (btnp 4)
     (for [i 0 7]
