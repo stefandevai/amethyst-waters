@@ -647,14 +647,17 @@
 (fn init-player []
   (init-shots)
 
-  (pmem 2 1)
-  (pmem 3 1)
+  ;(pmem 2 1)
+  ;(pmem 3 1)
   ;(pmem 4 1)
   (fn get-available-shots []
     (local available-shots [ :basic-shot ])
-    (when (= (pmem 2) 1) (table.insert available-shots (+ (length available-shots) 1) :blue-shot))
-    (when (= (pmem 3) 1) (table.insert available-shots (+ (length available-shots) 1) :triple-shot))
-    (when (= (pmem 4) 1) (table.insert available-shots (+ (length available-shots) 1) :super-shot))
+    (when (= (pmem 2) 1)
+      (table.insert available-shots (+ (length available-shots) 1) :blue-shot))
+    (when (= (pmem 3) 1)
+      (table.insert available-shots (+ (length available-shots) 1) :triple-shot))
+    (when (= (pmem 4) 1)
+      (table.insert available-shots (+ (length available-shots) 1) :super-shot))
     available-shots)
 
 
@@ -685,21 +688,25 @@
         })
 
   (if (= *player*.current-shot :basic-shot)
-      (set *player*.animator.animations
+      (do (set *player*.target-points 15)
+          (set *player*.animator.animations
            { :moving [ 257 258 259 260 ]
-             :hurt [ 257 256 258 256 259 256 260 256 ] })
+             :hurt [ 257 256 258 256 259 256 260 256 ] }))
       (= *player*.current-shot :blue-shot)
-      (set *player*.animator.animations
+      (do (set *player*.target-points 50)
+          (set *player*.animator.animations
            { :moving [ 400 401 402 403 ]
-             :hurt [ 400 256 401 256 402 256 403 256 ] })
+             :hurt [ 400 256 401 256 402 256 403 256 ] }))
       (= *player*.current-shot :triple-shot)
-      (set *player*.animator.animations
+      (do (set *player*.target-points 400)
+          (set *player*.animator.animations
            { :moving [ 416 417 418 419 ]
-             :hurt [ 416 256 417 256 418 256 419 256 ] })
+             :hurt [ 416 256 417 256 418 256 419 256 ] }))
       (= *player*.current-shot :super-shot)
-      (set *player*.animator.animations
+      (do (set *player*.target-points nil)
+          (set *player*.animator.animations
            { :moving [ 432 433 434 435 ]
-             :hurt [ 432 256 433 256 434 256 435 256 ] }))
+             :hurt [ 432 256 433 256 434 256 435 256 ] })))
 
   ;; Updates player and player's shots (called on TIC)
   (tset *player*
@@ -1461,7 +1468,8 @@
 
 (fn draw-hud []
   (spr 288 5 13 0)
-  (print (.. "x " *player*.points) 16 13 12)
+  (print (.. "x " *player*.points (and *player*.target-points (.. "/" *player*.target-points)))
+         16 13 12)
   (draw-healthbar 5 0 (// *player*.health 2))
   (draw-shot-icons 65 3))
 
@@ -1772,23 +1780,55 @@
   (cls 5)
 
   ;; Print multiple times with a small offset for a bold effect
-  (print "YOU CRASHED" (* 7 8) (* 3 8) 12 true 2)
-  (print "YOU CRASHED" (- (* 7 8) 1) (* 3 8) 12 true 2)
-  (print "YOU CRASHED" (* 7 8) (- (* 3 8) 1) 12 true 2)
+  (local title-string "YOU CRASHED")
+  ;(trace (length title-string))
+  ;(print title-string 64 (* 3 8) 12 true 2)
+  (print title-string (- 240 (* (length title-string) 16)) (* 2 8) 12 true 2)
+  (print title-string (- (- 240 (* (length title-string) 16)) 1) (* 2 8) 12 true 2)
+  (print title-string (- 240 (* (length title-string) 16)) (- (* 2 8) 1) 12 true 2)
 
-  (spr 288 5 13 0)
-  (print (.. "x " *player*.points) 16 13 12)
+  (spr 288 24 21 0)
+  (print (.. "x " *player*.points) 34 21 12)
 
-  ;; Get highscore from persistent memory
-  (if (or (> *player*.points (pmem 0)) highscore-flag)
-      (do (pmem 0 *player*.points)
-          (global highscore-flag true)
-          (print "Congratulations! New highscore." (* 7 8) (* 7 8) 12 true 1))
-      (and (> (pmem 0) 0) (= highscore-flag false))
-      (print (.. "Your highest score is " (pmem 0) " amethysts!" ) (* 3 8) (+ (* 12 7) 6) 12))
+  ;; Aquire triple shot
+  (var middle-text [])
+  (var icon nil)
+  (var padding 0)
 
-  (print "Press Z to repair your submarine" (* 3 8) (+ (* 12 8) 6) 12)
-  (print "and try your luck again." (* 3 8) (+ (* 13 8) 6) 12)
+  ;; Aquire blue shot
+  (if (and (= *player*.target-points 15) (>= *player*.points 15))
+      (do (when (not= (pmem 2) 1) (pmem 2 1))
+          (set icon 389)
+          (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
+
+      ;; Aquire triple shot
+      (and (= *player*.target-points 50) (>= *player*.points 50))
+      (do (when (not= (pmem 3) 1) (pmem 3 1))
+          (set icon 390)
+          (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
+
+      ;; Aquire super shot
+      (and (= *player*.target-points 400) (>= *player*.points 400))
+      (do (when (not= (pmem 4) 1) (pmem 4 1))
+          (set icon 391)
+          (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
+
+      ;; Player didn't reach target points
+      (< *player*.points *player*.target-points)
+      (set middle-text [(.. "Get " *player*.target-points " amethysts") "to unlock your next weapon!"])
+
+      ;; If already has super shot
+      (set middle-text ["You have superpowers!!"]))
+
+  (when icon
+    (spr icon 114 44 0 2)
+    (set padding 8))
+  (for [i 1 (length middle-text) 1]
+    (local width (print (. middle-text i) 0 -16))
+    (print (. middle-text i) (// (- 240 width) 2) (+ 60 padding (* 8 (- i 1))) 15))
+
+  (print "Press Z to repair your submarine" 24 (+ (* 13 8) 6) 12)
+  (print "and try your luck again." (* 9 8) (+ (* 14 8) 6) 12)
 
   (when (btnp 4)
     (for [i 0 7]
