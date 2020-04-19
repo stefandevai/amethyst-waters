@@ -58,6 +58,15 @@
 (fn rvalue [l]
   (. l (r 1 (length l))))
 
+;; Return true if list has a certain element
+(fn has-element? [l e]
+  (var found false)
+  (each [k v (pairs l)]
+    (when (= v e)
+      (set found true)
+      (lua :break)))
+  found)
+
 ;; Returns sign of a number
 (fn sign [x] (if (> x 0) 1 (< x 0) -1 0))
 
@@ -638,6 +647,17 @@
 (fn init-player []
   (init-shots)
 
+  (pmem 2 1)
+  (pmem 3 1)
+  (pmem 4 1)
+  (fn get-available-shots []
+    (local available-shots [ :basic-shot ])
+    (when (= (pmem 2) 1) (table.insert available-shots (+ (length available-shots) 1) :blue-shot))
+    (when (= (pmem 3) 1) (table.insert available-shots (+ (length available-shots) 1) :triple-shot))
+    (when (= (pmem 4) 1) (table.insert available-shots (+ (length available-shots) 1) :super-shot))
+    available-shots)
+
+
   ;; Player table object
   (global *player* {
            :x 40 :y 68
@@ -648,9 +668,11 @@
            :state :none
            :hurt-timer 0
            :points 0
-           :current-shot :triple-shot
+           :available-shots (get-available-shots)
+           :current-shot :basic-shot
            :emitter (deepcopy *motor-emitter*)
          })
+  (trace (length *player*.available-shots))
 
   ;; Player animations
   (tset *player*
@@ -701,6 +723,12 @@
                       (btnp 5 10 10)
                       (self:shoot :y))
 
+                  ;; Change weapon if A or S is pressed
+                  (if (btnp 6)
+                      (set self.current-shot (self:change-shot :p))
+                      (btnp 7)
+                      (set self.current-shot (self:change-shot :n)))
+
                   ;; Positioning
                   (set self.x (+ self.x self.vx))
                   (set self.y (+ self.y self.vy))
@@ -711,6 +739,19 @@
                   (if (> (+ self.y self.h) +height+) (set self.y (- +height+ self.h))
                     (< self.y 0) (set self.y 0))))
 
+  (set *player*.change-shot
+    (fn [self dir]
+      (var changed-shot self.current-shot)
+      (each [k v (ipairs self.available-shots)]
+        (when (= v self.current-shot)
+          (set changed-shot
+            (if (= dir :n)
+                (. self.available-shots (+ (% k (length self.available-shots)) 1))
+                (= dir :p)
+                (. self.available-shots (if (= k 1)
+                                            (length self.available-shots)
+                                            (- k 1)))))))
+      changed-shot))
 
   ;; Draws player (called on OVR)
   (tset *player*
@@ -1262,9 +1303,9 @@
     (tset *spawners* spw (get-spawner spw))))
 
 (fn update-enemy-spawners []
-  (trace *cam*.x)
-  (trace (length *enemy-pool*))
-  (trace "---------------------")
+  ;(trace *cam*.x)
+  ;(trace (length *enemy-pool*))
+  ;(trace "---------------------")
   (when (and (< *cam*.speedx *cam*.max-speed) (= (% *tick* 400) 0))
     (inc *cam*.speedx))
 
@@ -1347,9 +1388,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (fn update-game-debug []
-  (when (btnp 6)
+  (when (> *cam*.x 100)
+    ;(spawn-enemy :anana)))
     (spawn-snail)))
-    ;(spawn-enemy :test-fish 220 68)))
+    ;(spawn-enemy :test-fish 220 68)))A
     ;(spawn-enemy :anglerfish 270 53)))
 
 (fn draw-healthbar [x y n]
@@ -1364,30 +1406,50 @@
   (spr 385 (+ x 40 3) y 0 1 0 0 1 1)
   (spr 385 (+ x 42 3) y 0 1 0 0 2 1)
 
-  (spr 384 (+ x 3) (+ y 4) 0 1 2 0 2 1)
-  (spr 385 (+ x 16 3) (+ y 4) 0 1 2 0 1 1)
-  (spr 385 (+ x 24 3) (+ y 4) 0 1 2 0 1 1)
-  (spr 385 (+ x 32 3) (+ y 4) 0 1 2 0 1 1)
-  (spr 385 (+ x 40 3) (+ y 4) 0 1 2 0 1 1)
-  (spr 385 (+ x 42 3) (+ y 4) 0 1 2 0 2 1)
+  (spr 384 (+ x 3) (+ y 5) 0 1 2 0 2 1)
+  (spr 385 (+ x 16 3) (+ y 5) 0 1 2 0 1 1)
+  (spr 385 (+ x 24 3) (+ y 5) 0 1 2 0 1 1)
+  (spr 385 (+ x 32 3) (+ y 5) 0 1 2 0 1 1)
+  (spr 385 (+ x 40 3) (+ y 5) 0 1 2 0 1 1)
+  (spr 385 (+ x 42 3) (+ y 5) 0 1 2 0 2 1)
 
   ;; Filling
   ;; Only draw if we have life
   (when (> n 0)
     (var fill-color 1)
     (when (< n 10) (set fill-color 9))
-    (for [j y (+ y 3) 1]
+    (for [j y (+ y 4) 1]
       (for [i (+ x 3) (+ x 3 n -1) 1]
         (pix (+ i 4) (+ j 4) fill-color)))))
 
+(fn draw-shot-icons [x y]
+  (if (= *player*.current-shot :basic-shot)
+      (spr 388 x y 0)
+      (spr 395 x y 0))
+
+  (if (has-element? *player*.available-shots :blue-shot)
+      (if (= *player*.current-shot :blue-shot)
+          (spr 389 (+ x 8) y 0)
+          (spr 396 (+ x 8) y 0))
+      (spr 392 (+ x 8) y 0))
+
+  (if (has-element? *player*.available-shots :triple-shot)
+      (if (= *player*.current-shot :triple-shot)
+          (spr 390 (+ x 16) y 0)
+          (spr 397 (+ x 16) y 0))
+      (spr 393 (+ x 16) y 0))
+
+  (if (has-element? *player*.available-shots :super-shot)
+      (if (= *player*.current-shot :super-shot)
+          (spr 391 (+ x 24) y 0)
+          (spr 398 (+ x 24) y 0))
+      (spr 394 (+ x 24) y 0)))
+
 (fn draw-hud []
-  ;(print (.. "camx " *cam*.x) 8 26 12)
-  ;(print (.. "lastgen " *last-block-generated*) 8 17 12)
-  ;(spr 384 100 13 0 1 2 0 3 1)
   (spr 288 5 13 0)
   (print (.. "x " *player*.points) 16 13 12)
-  (draw-healthbar 5 0 (// *player*.health 2)))
-  ;(print (.. "Energy: " *player*.health) 8 18 12))
+  (draw-healthbar 5 0 (// *player*.health 2))
+  (draw-shot-icons 65 3))
 
 (fn draw-game []
   (cls)
@@ -1896,14 +1958,18 @@
 ;; 128:000000000000000000000000000bcccc000c6666000c6666000c6666000c6666
 ;; 129:000000000000000000000000cccccccc66666666666666666666666666666666
 ;; 130:000000000000000000000000ccccb0006666c0006666c0006666c0006666c000
-;; 131:0cc00000cccc0000bccb0000bccb0000bccb0000cccc00000000000000000000
+;; 131:0cc00000cccc0000bccb0000bccb0000bccb0000bccb0000cccc000000000000
 ;; 132:bcccccb0c66666c0c66666c0c62226c0c66666c0c66666c0bcccccb000000000
 ;; 133:bcccccb0c66666c0c6bbb6c0c6bbb6c0c6bbb6c0c66666c0bcccccb000000000
 ;; 134:bcccccb0c66666c0c6ff66c0c66ff6c0c6ff66c0c66666c0bcccccb000000000
 ;; 135:bcccccb0c66666c0c66cc6c0c6ccc6c0c6cc66c0c66666c0bcccccb000000000
-;; 136:bcccccb0c66666c0c6aaa6c0c6aaa6c0c6aaa6c0c66666c0bcccccb000000000
-;; 137:bcccccb0c66666c0c6aa66c0c66aa6c0c6aa66c0c66666c0bcccccb000000000
-;; 138:bcccccb0c66666c0c66aa6c0c6aaa6c0c6aa66c0c66666c0bcccccb000000000
+;; 136:8aaaaa80a66666a0a6aaa6a0a6aaa6a0a6aaa6a0a66666a08aaaaa8000000000
+;; 137:8aaaaa80a66666a0a6aa66a0a66aa6a0a6aa66a0a66666a08aaaaa8000000000
+;; 138:8aaaaa80a66666a0a66aa6a0a6aaa6a0a6aa66a0a66666a08aaaaa8000000000
+;; 139:abbbbba0b66666b0b66666b0b62226b0b66666b0b66666b0abbbbba000000000
+;; 140:abbbbba0b66666b0b6bbb6b0b6bbb6b0b6bbb6b0b66666b0abbbbba000000000
+;; 141:abbbbba0b66666b0b6ff66b0b66ff6b0b6ff66b0b66666b0abbbbba000000000
+;; 142:abbbbba0b66666b0b66cc6b0b6ccc6b0b6cc66b0b66666b0abbbbba000000000
 ;; </SPRITES>
 
 ;; <WAVES>
