@@ -1149,7 +1149,7 @@
 
 ;; Spaws enemies according to various parameters
 (fn init-enemy-spawners []
-  (global *spawners* [])
+  (global *spawners* {})
   (global *spawner* { :enemy :simple-fish :delay 30 :duration 10 :finished false })
 
   (set *spawner*.update
@@ -1173,13 +1173,23 @@
          (set self.finished true)
          (dec self.duration *dt*))))
   
-  (global *easy-spawners* [ *fish-spawner* *snail-spawner* ])
+  (global *easy-spawners* [ :fish :snail ])
   ;; Tick counter for waves
   (global *wave-counter* 0))
 
 ;; Cam pos range
 (fn camr [from to]
   (and (> *cam*.x to) (< *cam*.x from)))
+
+(fn get-spawner [type]
+  (match type
+    :fish (deepcopy *fish-spawner*)
+    :snail (deepcopy *snail-spawner*)))
+
+(fn add-spawner [spawners]
+  (local spw (. spawners (r 1 (length spawners))))
+  (when (not (. *spawners* spw))
+    (tset *spawners* spw (get-spawner spw))))
 
 (fn update-enemy-spawners []
   ;(trace *cam*.x)
@@ -1188,13 +1198,13 @@
 
   (if (= *enemy-wave* :easy-wave)
       (do (trace (length *enemy-pool*)) (when (< (length *spawners*) 2)
-            ;(trace *cam*.x)
-            (table.insert *spawners* (deepcopy (. *easy-spawners* (r 1 (length *easy-spawners*))))))
+            (add-spawner *easy-spawners*))
+            ;(table.insert *spawners* (deepcopy (. *easy-spawners* (r 1 (length *easy-spawners*))))))
           (each [k spawner (pairs *spawners*)]
             (spawner:update)
             (when spawner.finished
               ;(trace *cam*.y)
-              (table.remove *spawners* k))))
+              (tset *spawners* k nil))))
 
       (= *enemy-wave* :medium-wave)
       (when (= (length *enemy-pool*) 0)
@@ -1583,7 +1593,7 @@
   (decorate-block 14 59)
 
   (global *shake* 0)
-  (global *enemy-wave* :first-wave)
+  (global *enemy-wave* :easy-wave)
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
