@@ -1167,6 +1167,7 @@
 
     ;; Destroy enemy if it's to the left of the screen or it has no more health
     (when (or (< (+ enemy.x enemy.w) -8.0)
+              (> enemy.x 480)
               (< enemy.y -200)
               (> enemy.y (+ +height+ 200))
               (<= enemy.health 0))
@@ -1262,7 +1263,8 @@
 
 (fn update-enemy-spawners []
   (trace *cam*.x)
-  ;(trace *active-spawners*)
+  (trace (length *enemy-pool*))
+  (trace "---------------------")
   (when (and (< *cam*.speedx *cam*.max-speed) (= (% *tick* 400) 0))
     (inc *cam*.speedx))
 
@@ -1288,11 +1290,22 @@
               (tset *spawners* k nil)))
           
           (when (< *cam*.x -4000)
+            (each [k spawner (pairs *spawners*)]
+              (decg *active-spawners*)
+              (tset *spawners* k nil))
             (global *enemy-wave* :boss-wave)))
 
       (= *enemy-wave* :boss-wave)
-      (when (<= (length *enemy-pool*) 0)
-        (spawn-enemy :anglerfish))
+      (do (if (> *cam*.x -4600)
+              (do (when (> *cam*.speedx 20) (set *cam*.speedx 20))
+                  (when (< *active-spawners* 2) (add-spawner [:fish :stronger-fish]))
+                  (each [k spawner (pairs *spawners*)]
+                    (spawner:update)
+                    (when spawner.finished
+                      (decg *active-spawners*)
+                      (tset *spawners* k nil))))
+            (<= (length *enemy-pool*) 0)
+            (spawn-enemy :anglerfish)))
 
       ;; First wave
       (= *enemy-wave* :first-wave)
