@@ -648,7 +648,7 @@
            :state :none
            :hurt-timer 0
            :points 0
-           :current-shot :basic-shot
+           :current-shot :triple-shot
            :emitter (deepcopy *motor-emitter*)
          })
 
@@ -753,8 +753,8 @@
                         (if (<= self.health 0)
                             (self:die)
                             (do (sfx 4 60 -1 3 88)
-                                ;; Increase game speed when damaged
-                                (when (< *cam*.speedx *cam*.max-speed) (inc *cam*.speedx 5))
+                                ;;; Increase game speed when damaged
+                                ;(when (< *cam*.speedx *cam*.max-speed) (inc *cam*.speedx 5))
                                 (global *shake* 18)
                                 (set self.animator.current-animation :hurt)
                                 (set self.state :hurt)
@@ -827,6 +827,7 @@
 ;; Returns the enemy
 (fn spawn-enemy [type ?x ?y]
   (let [enemy (if (= type :simple-fish) (deepcopy *simple-fish*)
+                  (= type :ghost-fish) (deepcopy *ghost-fish*)
                   (= type :stronger-fish) (deepcopy *stronger-fish*)
                   (= type :shooter-fish) (deepcopy *shooter-fish*)
                   (= type :energy-ball) (deepcopy *energy-ball*)
@@ -834,6 +835,7 @@
                   (= type :anglerfish) (deepcopy *anglerfish*)
                   (= type :snake) (deepcopy *snake*)
                   (= type :snail) (deepcopy *snail*)
+                  (= type :easy-snail) (deepcopy *easy-snail*)
                   (= type :guard) (deepcopy *guard*)
                   (= type :test-fish) (deepcopy *snake*))]
     (tset enemy :type type)
@@ -874,6 +876,11 @@
           (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))
           (inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
 
+  ;; Ghost fish
+  (global *ghost-fish* (deepcopy *simple-fish*))
+  (set *ghost-fish*.damage 5)
+  (set *ghost-fish*.animator.animations.moving [ 377 378 379 378 377 380 381 380 ])
+
   ;; Stronger fish
   (global *stronger-fish* (deepcopy *enemy*))
   (set *stronger-fish*.speedx 30)
@@ -891,8 +898,8 @@
   ;; Shooter fish
   (global *shooter-fish* (deepcopy *stronger-fish*))
   (set *shooter-fish*.speedx 20)
-  (set *shooter-fish*.health 15)
-  (set *shooter-fish*.damage 10)
+  (set *shooter-fish*.health 24)
+  (set *shooter-fish*.damage 15)
   (set *shooter-fish*.animator.animations.moving [ 269 270 271 285 271 270 ])
   (set *shooter-fish*.update
         (fn [self]
@@ -900,7 +907,7 @@
              (var ball (spawn-enemy :energy-ball self.x self.y))
              (set ball.animator.animations.moving [ 264 308 309 308 ])
              (set ball.animator.speed 50)
-             (set ball.damage 7)
+             (set ball.damage 20)
              (set ball.w 3)
              (set ball.h 3)
              (set ball.speedx (+ *cam*.speedx 80)))
@@ -1030,8 +1037,9 @@
   (set *snake*.length 30)
   (set *snake*.animator.animations.moving [ 368 374 371 374 ])
   (set *snake*.animator.speedx 100)
-  (set *snake*.speedx 40)
+  (set *snake*.speedx 100)
   (set *snake*.health 100)
+  (set *snake*.damage 30)
   (set *snake*.draw
    (fn [self]
      (var bindex 1) ; body index
@@ -1055,8 +1063,11 @@
        (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))))
        ;(inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
 
+
   (global *snail* (deepcopy *enemy*))
   (set *snail*.animator.animations.moving [ 266 ])
+  (set *snail*.health 12)
+  (set *snail*.damage 40)
   (set *snail*.draw
    (fn [self]
        (animate self)
@@ -1068,15 +1079,34 @@
          (var ball (spawn-enemy :energy-ball self.x self.y))
          (set ball.animator.animations.moving [ 264 308 309 308 ])
          (set ball.animator.speed 50)
-         (set ball.damage 12)
+         (set ball.damage 20)
          (set ball.w 3)
          (set ball.h 3)
          (set ball.speedx (- self.x *player*.x))
          (set ball.speedy (- *player*.y self.y)))
        (dec self.x (* *cam*.speedx *dt*))))
 
+  (global *easy-snail* (deepcopy *snail*))
+  (set *easy-snail*.animator.animations.moving [ 338 ])
+  (set *easy-snail*.health 12)
+  (set *easy-snail*.damage 30)
+  (set *easy-snail*.update
+   (fn [self]
+       (when ( = (% (+ *tick* (math.round self.y)) 70) 0)
+         (var ball (spawn-enemy :energy-ball self.x self.y))
+         (set ball.animator.animations.moving [ 264 308 309 308 ])
+         (set ball.animator.speed 50)
+         (set ball.damage 20)
+         (set ball.w 3)
+         (set ball.h 3)
+         (set ball.speedx *cam*.speedx)
+         (set ball.speedy -40))
+       (dec self.x (* *cam*.speedx *dt*))))
+
+
   (global *guard* (deepcopy *enemy*))
   (set *guard*.animator.animations.moving [ 304 ])
+  (set *guard*.health 10)
 
   (set *guard*.update
    (fn [self]
@@ -1087,7 +1117,7 @@
          (set ball.damage 7)
          (set ball.w 3)
          (set ball.h 3)
-         (set ball.speedx 40))
+         (set ball.speedx (+ *cam*.speedx 20)))
        (set self.y (+ 68 (* 50 (sin (* 0.03 *tick*)))))
        (dec self.x (* *cam*.speedx *dt*))))
 
@@ -1095,7 +1125,7 @@
   (global *enemy-pool* []))
 
 ;; Spawns a snail
-(fn spawn-snail []
+(fn spawn-snail [?enemy]
   (when (< ymax 9)
     (local camtile (% (math.abs (math.round (// *cam*.x 8))) 240))
     (var found-tile false)
@@ -1104,7 +1134,7 @@
       ;; Tries to find a bottom free location
       (for [j 10 16 1]
         (when (and (> (mget i j) 127) (= (mget i (- j 1)) 0))
-          (spawn-enemy :snail
+          (spawn-enemy (or ?enemy :snail)
                        (- (* (- i camtile -1) 8) (% (math.abs *cam*.x) 8))
                        (+ (* (- j 1) 8) 4))
           (set found-tile true)
@@ -1150,7 +1180,8 @@
 ;; Spaws enemies according to various parameters
 (fn init-enemy-spawners []
   (global *spawners* {})
-  (global *spawner* { :enemy :simple-fish :delay 30 :duration 10 :finished false })
+  (global *active-spawners* 0)
+  (global *spawner* { :enemy :simple-fish :delay 30 :duration 5 :finished false })
 
   (set *spawner*.update
    (fn [self ?delay ?x ?y ?enemy]
@@ -1161,58 +1192,107 @@
          (dec self.duration *dt*))))
 
   (global *fish-spawner* (deepcopy *spawner*))
+
+  (global *ghost-fish-spawner* (deepcopy *spawner*))
+  (set *ghost-fish-spawner*.enemy :ghost-fish)
+
+  (global *stronger-fish-spawner* (deepcopy *fish-spawner*))
+  (set *stronger-fish-spawner*.enemy :stronger-fish)
+  (set *stronger-fish-spawner*.delay 55)
+
   (global *snail-spawner* (deepcopy *spawner*))
+  (set *snail-spawner*.enemy :snail)
   (set *snail-spawner*.delay 250)
-  (set *snail-spawner*.duration 10)
+  (set *snail-spawner*.duration 15)
   (set *snail-spawner*.update
    (fn [self ?delay]
      (when (= (% *tick* (or delay self.delay)) 0)
        ;(trace "spawning")
-       (spawn-snail))
+       (spawn-snail self.enemy))
      (if (< self.duration 0)
          (set self.finished true)
          (dec self.duration *dt*))))
+
+  (global *easy-snail-spawner* (deepcopy *snail-spawner*))
+  (set *easy-snail-spawner*.enemy :easy-snail)
+
+  (global *shooter-fish-spawner* (deepcopy *spawner*))
+  (set *shooter-fish-spawner*.enemy :shooter-fish)
+  (set *shooter-fish-spawner*.delay 180)
+
+  (global *snake-spawner* (deepcopy *spawner*))
+  (set *snake-spawner*.enemy :snake)
+  (set *snake-spawner*.delay 180)
+
+  (global *guard-spawner* (deepcopy *spawner*))
+  (set *guard-spawner*.enemy :guard)
+  (set *guard-spawner*.update
+   (fn [self]
+     (when (= (% *tick* 150) 0)
+       (spawn-enemy :guard)
+       (set self.finished true))))
   
-  (global *easy-spawners* [ :fish :snail ])
+  (global *easy-spawners* [ :fish :stronger-fish :guard :easy-snail ])
+  (global *medium-spawners* [ :guard :snail :snake :shooter-fish :ghost-fish ])
   ;; Tick counter for waves
   (global *wave-counter* 0))
 
-;; Cam pos range
+;; Returns true if the camera is within certain range
 (fn camr [from to]
   (and (> *cam*.x to) (< *cam*.x from)))
 
+;; Returns a copy of a certain spawner
 (fn get-spawner [type]
   (match type
     :fish (deepcopy *fish-spawner*)
+    :ghost-fish (deepcopy *ghost-fish-spawner*)
+    :stronger-fish (deepcopy *stronger-fish-spawner*)
+    :shooter-fish (deepcopy *shooter-fish-spawner*)
+    :snake (deepcopy *snake-spawner*)
+    :guard (deepcopy *guard-spawner*)
+    :easy-snail (deepcopy *easy-snail-spawner*)
     :snail (deepcopy *snail-spawner*)))
 
+;; Adds a single spawner to the spawner table
 (fn add-spawner [spawners]
   (local spw (. spawners (r 1 (length spawners))))
-  (when (not (. *spawners* spw))
+  (when (= (. *spawners* spw) nil)
+    (incg *active-spawners*)
     (tset *spawners* spw (get-spawner spw))))
 
 (fn update-enemy-spawners []
-  ;(trace *cam*.x)
+  (trace *cam*.x)
+  ;(trace *active-spawners*)
   (when (and (< *cam*.speedx *cam*.max-speed) (= (% *tick* 400) 0))
     (inc *cam*.speedx))
 
   (if (= *enemy-wave* :easy-wave)
-      (do (trace (length *enemy-pool*)) (when (< (length *spawners*) 2)
+      (do (when (< *active-spawners* 2)
             (add-spawner *easy-spawners*))
-            ;(table.insert *spawners* (deepcopy (. *easy-spawners* (r 1 (length *easy-spawners*))))))
           (each [k spawner (pairs *spawners*)]
             (spawner:update)
             (when spawner.finished
-              ;(trace *cam*.y)
-              (tset *spawners* k nil))))
+              (decg *active-spawners*)
+              (tset *spawners* k nil)))
+          
+          (when (< *cam*.x -2000)
+            (global *enemy-wave* :medium-wave)))
 
       (= *enemy-wave* :medium-wave)
-      (when (= (length *enemy-pool*) 0)
-        (spawn-enemy :anglerfish 300 52))
+      (do (when (< *active-spawners* 2)
+            (add-spawner *medium-spawners*))
+          (each [k spawner (pairs *spawners*)]
+            (spawner:update)
+            (when spawner.finished
+              (decg *active-spawners*)
+              (tset *spawners* k nil)))
+          
+          (when (< *cam*.x -4000)
+            (global *enemy-wave* :boss-wave)))
 
-      (= *enemy-wave* :hard-wave)
-      (when (= (length *enemy-pool*) 0)
-        (spawn-enemy :anglerfish 300 52))
+      (= *enemy-wave* :boss-wave)
+      (when (<= (length *enemy-pool*) 0)
+        (spawn-enemy :anglerfish))
 
       ;; First wave
       (= *enemy-wave* :first-wave)
@@ -1563,7 +1643,7 @@
 
   (init-icosahedron)
 
-  ;(music 0)
+  (music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1593,7 +1673,7 @@
   (decorate-block 14 59)
 
   (global *shake* 0)
-  (global *enemy-wave* :easy-wave)
+  (global *enemy-wave* :first-wave)
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
@@ -1779,20 +1859,27 @@
 ;; 079:6666666000006660000006600000000000000000000000000000000000000000
 ;; 080:0000000000005550000555560006666500055555000555550000555500007000
 ;; 081:00000000000000000000000050000110550001105700007050f0007070070070
+;; 082:000000a000000a800000aa600008888000aaa8600888668007a7a86006666600
 ;; 092:0000666600000666000000660000000000000000000000000000000000000000
 ;; 093:6666666666666666666666666666666600000000000000000000000000000000
 ;; 094:6666600066660000666000006000000000000000000000000000000000000000
 ;; 096:000f0000000700000000700000000f0001100070011000700077770000000000
 ;; 097:0f00f70000700000007000000007110000001100000000000000000000000000
-;; 112:0002000000120000011111000000111000000111000000110000000000000000
-;; 113:0000000000000000000000110000011100002110000121000011100000000000
-;; 114:0000000000000000000020000001211100111111000000000000000000000000
-;; 115:0000000000000000001111000111111011100111110000110000000000000000
-;; 116:0000000000000000110000111110011101111110001111000000000000000000
-;; 117:0000000000000000000011101001111111111011111100010000000000000000
-;; 118:0000000000000000001110000111120011100020110000020000000000000000
-;; 119:0000000000000000110000021110002001111200001110000000000000000000
-;; 120:0000000000000000000000000000000011011220111100000000000000000000
+;; 098:0606600006060000060600000006000006000000000600000000000000000000
+;; 112:0002000000720000077777000000777000000777000000770000000000000000
+;; 113:0000000000000000000000770000077700002770000727000077700000000000
+;; 114:0000000000000000000020000007277700777777000000000000000000000000
+;; 115:0000000000000000007777000777777077700777770000770000000000000000
+;; 116:0000000000000000770000777770077707777770007777000000000000000000
+;; 117:0000000000000000000077707007777777777077777700070000000000000000
+;; 118:0000000000000000007770000777720077700020770000020000000000000000
+;; 119:0000000000000000770000027770002007777200007770000000000000000000
+;; 120:0000000000000000000000000000000077077220777700000000000000000000
+;; 121:abaaaa20aaaa00000aa000000000000000000000000000000000000000000000
+;; 122:abaaaa00aaaa00000aa000000000000000000000000000000000000000000000
+;; 123:abaaa000aaaa00000aa000000000000000000000000000000000000000000000
+;; 124:abaaa200aaaa00000aa000000000000000000000000000000000000000000000
+;; 125:aaaa2000aaaa00000aa000000000000000000000000000000000000000000000
 ;; 128:000000000000000000000000000a222200028888000288880002888800028888
 ;; 129:0000000000000000000000002222222288888888888888888888888888888888
 ;; 130:0000000000000000000000002222a00088882000888820008888200088882000
