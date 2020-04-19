@@ -1035,6 +1035,9 @@
      ;(trace self.health)
      (inc self.aframe)
 
+     (when (not= self.state :arriving)
+       (global *boss-life* (math.max 0 self.health)))
+
      (when (and (< self.health 1000) (> self.asfactor 0.5))
        (set self.asfactor 0.8))
 
@@ -1423,13 +1426,39 @@
           (spr 397 (+ x 16) y 0))
       (spr 393 (+ x 16) y 0)))
 
+(fn draw-boss-healthbar [x y]
+  (when (>= *boss-life* -1)
+    ;; Boss icon
+    (spr 387 x (+ y 3) 0)
+
+    ;; Health bar
+    (spr 384 (+ x 3) y 0 1 0 0 2 1)
+    (for [i 2 27 1]
+      (spr 385 (+ x (* 8 i) 3) y 0 1 0 0 1 1))
+    (spr 386 (+ x (* 28 8) 2) y 0 1 0 0 1 1)
+
+    (spr 384 (+ x 3) (+ y 5) 0 1 2 0 2 1)
+    (for [i 2 27 1]
+      (spr 385 (+ x (* 8 i) 3) (+ y 5) 0 1 2 0 1 1))
+    (spr 386 (+ x (* 28 8) 2) (+ y 5) 0 1 2 0 1 1)
+
+    ;; Filling
+    ;; Only draw if we have life
+    (when (> *boss-life* 0)
+      (var fill-color 1)
+      (when (< *boss-life* 1000) (set fill-color 9))
+      (for [j y (+ y 4) 1]
+        (for [i (+ x 3) (+ x 3 (math.round (/ *boss-life* 13.452914)) -1) 1]
+          (pix (+ i 4) (+ j 4) fill-color))))))
+
 (fn draw-hud []
   (spr 288 5 13 0)
   (if (> *player*.target-points 0)
       (print (.. *player*.points (.. "/" *player*.target-points)) 15 13 12)
       (print *player*.points 15 13 12))
   (draw-healthbar 5 0 (// *player*.health 2))
-  (draw-shot-icons 65 3))
+  (draw-shot-icons 65 3)
+  (draw-boss-healthbar 5 (- 136 10)))
 
 (fn draw-game []
   (cls)
@@ -1698,7 +1727,7 @@
 
   (init-icosahedron)
 
-  (music 0)
+  ;(music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1729,6 +1758,7 @@
 
   (global *shake* 0)
   (global *enemy-wave* :first-wave)
+  (global *boss-life* -1)
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
