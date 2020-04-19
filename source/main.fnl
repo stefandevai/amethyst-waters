@@ -649,7 +649,7 @@
 
   (pmem 2 1)
   (pmem 3 1)
-  (pmem 4 1)
+  ;(pmem 4 1)
   (fn get-available-shots []
     (local available-shots [ :basic-shot ])
     (when (= (pmem 2) 1) (table.insert available-shots (+ (length available-shots) 1) :blue-shot))
@@ -672,7 +672,8 @@
            :current-shot :basic-shot
            :emitter (deepcopy *motor-emitter*)
          })
-  (trace (length *player*.available-shots))
+
+  (set *player*.current-shot (. *player*.available-shots (length *player*.available-shots)))
 
   ;; Player animations
   (tset *player*
@@ -681,11 +682,24 @@
           :current-index 1
           :elapsed 0
           :speed 100
-          :animations {
-            :moving [ 257 258 259 260 ]
-            :hurt [ 257 256 258 256 259 256 260 256 ]
-          }
         })
+
+  (if (= *player*.current-shot :basic-shot)
+      (set *player*.animator.animations
+           { :moving [ 257 258 259 260 ]
+             :hurt [ 257 256 258 256 259 256 260 256 ] })
+      (= *player*.current-shot :blue-shot)
+      (set *player*.animator.animations
+           { :moving [ 400 401 402 403 ]
+             :hurt [ 400 256 401 256 402 256 403 256 ] })
+      (= *player*.current-shot :triple-shot)
+      (set *player*.animator.animations
+           { :moving [ 416 417 418 419 ]
+             :hurt [ 416 256 417 256 418 256 419 256 ] })
+      (= *player*.current-shot :super-shot)
+      (set *player*.animator.animations
+           { :moving [ 432 433 434 435 ]
+             :hurt [ 432 256 433 256 434 256 435 256 ] }))
 
   ;; Updates player and player's shots (called on TIC)
   (tset *player*
@@ -1878,7 +1892,7 @@
 ;; </TILES>
 
 ;; <SPRITES>
-;; 000:0000900000009000000999900099999999999999999999990099999900099990
+;; 000:0000600000006000000666600066666666666666666666660066666600066660
 ;; 001:000020000000a000000cc220c02cc288ca2228aa2a2228882022222200022220
 ;; 002:0000c0000000a000000cc220002cc288ca2228aa2a2228880022222200022220
 ;; 003:000020000000a000000cc220002cc2880a2228aa2a2228880022222200022220
@@ -1970,6 +1984,18 @@
 ;; 140:abbbbba0b66666b0b6bbb6b0b6bbb6b0b6bbb6b0b66666b0abbbbba000000000
 ;; 141:abbbbba0b66666b0b6ff66b0b66ff6b0b6ff66b0b66666b0abbbbba000000000
 ;; 142:abbbbba0b66666b0b66cc6b0b6ccc6b0b6cc66b0b66666b0abbbbba000000000
+;; 144:0000b0000000a000000ccbb0c0bccb66cabbb6aababbb666b0bbbbbb000bbbb0
+;; 145:0000c0000000a000000ccbb000bccb66cabbb6aababbb66600bbbbbb000bbbb0
+;; 146:0000b0000000a000000ccbb000bccb660abbb6aababbb66600bbbbbb000bbbb0
+;; 147:0000c0000000a000000ccbb000bccb66cabbb6aa0abbb66600bbbbbb000bbbb0
+;; 160:0000f00000007000000ccff0c0fccf88c7fff8aaf7fff888f0ffffff000ffff0
+;; 161:0000c00000007000000ccff000fccf88c7fff8aaf7fff88800ffffff000ffff0
+;; 162:0000f00000007000000ccff000fccf8807fff8aaf7fff88800ffffff000ffff0
+;; 163:0000c00000007000000ccff000fccf88c7fff8aa07fff88800ffffff000ffff0
+;; 176:0000c0000000a000000cccc0c0cccc88caccc8aacaccc888c0cccccc000cccc0
+;; 177:0000c0000000a000000cccc000cccc88caccc8aacaccc88800cccccc000cccc0
+;; 178:0000c0000000a000000cccc000cccc880accc8aacaccc88800cccccc000cccc0
+;; 179:0000c0000000a000000cccc000cccc88caccc8aa0accc88800cccccc000cccc0
 ;; </SPRITES>
 
 ;; <WAVES>
