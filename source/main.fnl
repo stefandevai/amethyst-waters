@@ -648,6 +648,7 @@
          })
 
   (set *player*.current-shot (. *player*.available-shots (length *player*.available-shots)))
+  ;(set *player*.current-shot :blue-shot)
 
   ;; Player animations
   (tset *player*
@@ -966,6 +967,7 @@
   (set *anglerfish*.damage 40)
   (set *anglerfish*.health 3000)
   (set *anglerfish*.shake true)
+  (set *anglerfish*.boss? true)
   (set *anglerfish*.state :arriving)
   (set *anglerfish*.reposition-flag false)
   ;; Current attack
@@ -1205,6 +1207,7 @@
 
       ;; Player killed enemy
       (when (<= enemy.health 0)
+        (when enemy.boss? (global *boss-killed* true))
         (sfx 4 12 -1 3 6)
         (spawn-goods (math.max enemy.x 60) (+ enemy.y (/ enemy.h 2)) enemy.points))
       (destroy-enemy index))))
@@ -1327,16 +1330,21 @@
             (global *enemy-wave* :boss-wave)))
 
       (= *enemy-wave* :boss-wave)
-      (do (if (> *cam*.x -4600)
-              (do (when (> *cam*.speedx 20) (set *cam*.speedx 20))
+      (do (if *boss-killed*
+             (do (global *enemy-wave* :none)
+                 (global *time-elapsed* 0)
+                 (global *game-state* "win"))
+
+             (> *cam*.x -4600)
+             (do (when (> *cam*.speedx 20) (set *cam*.speedx 20))
                   (when (< *active-spawners* 2) (add-spawner [:fish :stronger-fish]))
                   (each [k spawner (pairs *spawners*)]
                     (spawner:update)
                     (when spawner.finished
                       (decg *active-spawners*)
                       (tset *spawners* k nil))))
-            (<= (length *enemy-pool*) 0)
-            (spawn-enemy :anglerfish)))
+             (<= (length *enemy-pool*) 0)
+             (spawn-enemy :anglerfish)))
 
       ;; First wave
       (= *enemy-wave* :first-wave)
@@ -1377,9 +1385,9 @@
 ;;; Game                                                                                       ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(fn update-game-debug []
-  (when (btnp 6)
-    (spawn-enemy :anglerfish)))
+;(fn update-game-debug []
+  ;(when (btnp 6)
+    ;(spawn-enemy :anglerfish)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1387,17 +1395,13 @@
 
   ;; Health bar
   (spr 384 (+ x 3) y 0 1 0 0 2 1)
-  (spr 385 (+ x 16 3) y 0 1 0 0 1 1)
-  (spr 385 (+ x 24 3) y 0 1 0 0 1 1)
-  (spr 385 (+ x 32 3) y 0 1 0 0 1 1)
-  (spr 385 (+ x 40 3) y 0 1 0 0 1 1)
+  (for [i 2 5 1]
+    (spr 385 (+ x (* 8 i) 3) y 0 1 0 0 1 1))
   (spr 385 (+ x 42 3) y 0 1 0 0 2 1)
 
   (spr 384 (+ x 3) (+ y 5) 0 1 2 0 2 1)
-  (spr 385 (+ x 16 3) (+ y 5) 0 1 2 0 1 1)
-  (spr 385 (+ x 24 3) (+ y 5) 0 1 2 0 1 1)
-  (spr 385 (+ x 32 3) (+ y 5) 0 1 2 0 1 1)
-  (spr 385 (+ x 40 3) (+ y 5) 0 1 2 0 1 1)
+  (for [i 2 5 1]
+    (spr 385 (+ x (* 8 i) 3) (+ y 5) 0 1 2 0 1 1))
   (spr 385 (+ x 42 3) (+ y 5) 0 1 2 0 2 1)
 
   ;; Filling
@@ -1427,27 +1431,26 @@
       (spr 393 (+ x 16) y 0)))
 
 (fn draw-boss-healthbar [x y]
-  (when (>= *boss-life* -1)
+  (when (and (> *boss-life* 0) (not *boss-killed*))
     ;; Boss icon
-    (spr 387 x (+ y 3) 0)
+    (spr 407 x (+ y 1) 0)
 
     ;; Health bar
-    (spr 384 (+ x 3) y 0 1 0 0 2 1)
+    (spr 404 (+ x 3) y 0 1 0 0 2 1)
     (for [i 2 27 1]
-      (spr 385 (+ x (* 8 i) 3) y 0 1 0 0 1 1))
-    (spr 386 (+ x (* 28 8) 2) y 0 1 0 0 1 1)
+      (spr 405 (+ x (* 8 i) 3) y 0 1 0 0 1 1))
+    (spr 406 (+ x (* 28 8) 2) y 0 1 0 0 1 1)
 
-    (spr 384 (+ x 3) (+ y 5) 0 1 2 0 2 1)
+    (spr 404 (+ x 3) (+ y 3) 0 1 2 0 2 1)
     (for [i 2 27 1]
-      (spr 385 (+ x (* 8 i) 3) (+ y 5) 0 1 2 0 1 1))
-    (spr 386 (+ x (* 28 8) 2) (+ y 5) 0 1 2 0 1 1)
+      (spr 405 (+ x (* 8 i) 3) (+ y 3) 0 1 2 0 1 1))
+    (spr 406 (+ x (* 28 8) 2) (+ y 3) 0 1 2 0 1 1)
 
     ;; Filling
-    ;; Only draw if we have life
+    ;; Only draw if there is life
     (when (> *boss-life* 0)
-      (var fill-color 1)
-      (when (< *boss-life* 1000) (set fill-color 9))
-      (for [j y (+ y 4) 1]
+      (var fill-color 7)
+      (for [j y (+ y 2) 1]
         (for [i (+ x 3) (+ x 3 (math.round (/ *boss-life* 13.452914)) -1) 1]
           (pix (+ i 4) (+ j 4) fill-color))))))
 
@@ -1498,8 +1501,8 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  (update-enemy-spawners)
-  (update-game-debug))
+  ;(update-game-debug)
+  (update-enemy-spawners))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Icosahedron                                                                                  ;;;
@@ -1727,7 +1730,7 @@
 
   (init-icosahedron)
 
-  ;(music 0)
+  (music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1744,6 +1747,7 @@
   (global *previous-time* (time))
   (global *tick* 0)
   (global *elapsed* 0)
+  (global *time-elapsed* 0)
 
   (global *cam* { :x 0 :y 0
                   :ox 0 :oy 0
@@ -1759,30 +1763,51 @@
   (global *shake* 0)
   (global *enemy-wave* :first-wave)
   (global *boss-life* -1)
+  (global *boss-killed* false)
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
   (global *game-state* "menu"))
 
+(fn update-win-screen []
+  (cls 5)
+  (local title-string "YOU WON!!!")
+  (local width (print title-string 0 -16 12 true 2))
+  (print title-string (// (- 240 width) 2) (* 2 8) 12 true 2)
+  (print title-string (- (// (- 240 width) 2) 1) (* 2 8) 12 true 2)
+  (print title-string (// (- 240 width) 2) (- (* 2 8) 1) 12 true 2)
+
+  (local middle-text ["You explored the Amethyst Waters."
+                      (.. "And look! You collected " *player*.points " amethysts!")])
+  (for [i 1 (length middle-text) 1]
+    (local width (print (. middle-text i) 0 -16))
+    (print (. middle-text i) (// (- 240 width) 2) (+ 60 (* 8 (- (* i 1.5) 1))) 15))
+
+  (local bottom-string "Press Z to go back to the title screen.")
+  (local width (print bottom-string 0 -16 12))
+  (print "Press Z to go back to the title screen" (// (- 240 width) 2) (+ (* 13 8) 6) 12)
+
+  (when (btnp 4)
+    (for [i 0 7]
+      (clear-map-block i))
+    (init)
+    ;; Time when game session is started
+    (global *initial-time* (time))
+    (global *game-state* "menu")))
+
 (fn update-game-over []
   (cls 5)
-
   ;; Print multiple times with a small offset for a bold effect
   (local title-string "YOU CRASHED")
-  ;(trace (length title-string))
-  ;(print title-string 64 (* 3 8) 12 true 2)
   (print title-string (- 256 (* (length title-string) 16)) (* 2 8) 12 true 2)
   (print title-string (- (- 256 (* (length title-string) 16)) 1) (* 2 8) 12 true 2)
   (print title-string (- 256 (* (length title-string) 16)) (- (* 2 8) 1) 12 true 2)
-
   (spr 288 32 21 0)
   (print (.. "x " *player*.points) 42 21 12)
-
   ;; Aquire triple shot
   (var middle-text [])
   (var icon nil)
   (var padding 0)
-
   ;; Aquire blue shot
   (if (and (= *player*.target-points 15) (>= *player*.points 15))
       (do (when (not= (pmem 2) 1) (pmem 2 1))
@@ -1826,6 +1851,7 @@
     ;; Calculate delta time
     (global *dt* (/ (- (time) *previous-time*) 1000.0))
     (global *previous-time* (time))
+    (incg *time-elapsed* *dt*)
     (incg *tick*)
 
     (if (= *game-state* "game")
@@ -1837,19 +1863,29 @@
         (= *game-state* "menu")
         (update-menu) 
 
+        (= *game-state* "win")
+        (if (< *time-elapsed* 10)
+            (do (when (> *cam*.speedx 10) (set *cam*.speedx 10))
+                (draw-bg)
+                (update-game))
+            (update-win-screen))
+
         (= *game-state* "game-over")
         (update-game-over))))
 
 (global OVR
   (fn []
-    (when (= *game-state* "game")
-      (draw-game))))
+    (if (= *game-state* "game")
+        (draw-game)
+        (and (= *game-state* "win") (< *time-elapsed* 10))
+        (draw-game))))
 
 (global scanline
  (fn [row]
-     (when (= *game-state* "game")
-
-       (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2)))))
+     (if (= *game-state* "game")
+         (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2))
+         (and (= *game-state* "win") (< *time-elapsed* 10))
+         (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2)))))
 
 (init)
 
@@ -2010,6 +2046,10 @@
 ;; 145:0000c0000000a000000ccbb000bccb66cabbb6aababbb66600bbbbbb000bbbb0
 ;; 146:0000b0000000a000000ccbb000bccb660abbb6aababbb66600bbbbbb000bbbb0
 ;; 147:0000c0000000a000000ccbb000bccb66cabbb6aa0abbb66600bbbbbb000bbbb0
+;; 148:000000000000000000000000000bcccc000c6666000c6666000c666600000000
+;; 149:000000000000000000000000cccccccc66666666666666666666666600000000
+;; 150:000000000000000000000000ccccb0006666c0006666c0006666c00000000000
+;; 151:0cc00000cccc0000bccb0000bccb0000bccb0000bccb0000cccc000000000000
 ;; 160:0000f00000007000000ccff0c0fccf88c7fff8aaf7fff888f0ffffff000ffff0
 ;; 161:0000c00000007000000ccff000fccf88c7fff8aaf7fff88800ffffff000ffff0
 ;; 162:0000f00000007000000ccff000fccf8807fff8aaf7fff88800ffffff000ffff0
