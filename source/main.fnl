@@ -532,11 +532,7 @@
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
 (fn init-shots []
-  ;; List of shot types and their respective sprites
-  (global *shot-types* [ :basic-shot :thick-shot :blue-shot ])
-
   (global *basic-shot* { :x 0 :y 0 :w 5 :h 1 :speedx 2 :speedy 0 :damage 2 :spr 261 :rot 0 })
-  (global *thick-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 5 :speedy 0 :damage 5 :spr 272 :rot 0 })
   (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 :flip 0 :rot 0 })
 
   ;; Implement update and draw methods
@@ -548,20 +544,6 @@
                   (out-of-bounds? self)))
         
   (tset *basic-shot*
-        ;; Draws shot with a specific sprite and position
-        :draw (fn [self]
-                (spr self.spr self.x self.y 0 1 0 self.rot)))
-
-
-  ;; Implement update and draw methods
-  (tset *thick-shot*
-        ;; Updates a shot. Returns true if it's out of bounds, returns nil otherwise
-        :update (fn [self]
-                  (inc self.y self.speedy)
-                  (inc self.x self.speedx)
-                  (out-of-bounds? self)))
-        
-  (tset *thick-shot*
         ;; Draws shot with a specific sprite and position
         :draw (fn [self]
                 (spr self.spr self.x self.y 0 1 0 self.rot)))
@@ -583,21 +565,18 @@
 (fn create-shot [type axis]
   (if (= type :basic-shot)
       (do (sfx 3 50 -1 3 7)
-          (local shot (deepcopy *basic-shot*))
-          (when (= axis :y)
-            (set shot.rot 1)
-            (set shot.speedy shot.speedx)
-            (set shot.speedx 0))
-          shot)
-
-      (= type :thick-shot)
-      (do (sfx 3 30 -1 3 8 3)
-          (local shot (deepcopy *thick-shot*))
-          (when (= axis :y)
-            (set shot.rot 1)
-            (set shot.speedy shot.speedx)
-            (set shot.speedx 0))
-          shot)
+          (if (= axis :y)
+            (do (local shot1 (deepcopy *basic-shot*))
+                (local shot2 (deepcopy *basic-shot*))
+                (set shot1.speedy shot1.speedx)
+                (set shot1.rot 1)
+                (set shot1.speedx 0)
+                (set shot2.speedy (- 0 shot2.speedx))
+                (set shot2.rot 1)
+                (set shot2.flip 1)
+                (set shot2.speedx 0)
+                [shot1 shot2])
+            (deepcopy *basic-shot*)))
 
       (= type :blue-shot)
       (do (sfx 3 20 -1 3 8 3)
@@ -615,14 +594,6 @@
             
             (deepcopy *blue-shot*)))
 
-      (= type :energy-shot)
-      (do (sfx 3 20 -1 3 8 3)
-          (local shot (deepcopy *energy-shot*))
-          (when (= axis :y)
-            (set shot.speedy shot.speedx)
-            (set shot.speedx 0))
-          shot)
-
       (and (= type :triple-shot) (= axis :x))
       (do (sfx 7 50 -1 3 8 3)
           (local shot1 (deepcopy *blue-shot*))
@@ -634,11 +605,11 @@
           (local shot3 (deepcopy *blue-shot*))
           (set shot3.speedy -2)
           (set shot3.spr 307)
-          [shot1 shot2 shot3])
+          [shot1 shot2 shot3])))
 
-      (= type :super-shot)
-      (do (sfx 3 50 -1 3 7)
-          (deepcopy *blue-shot*))))
+      ;(= type :super-shot)
+      ;(do (sfx 3 50 -1 3 7)
+          ;(deepcopy *blue-shot*))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Player                                                                                       ;;;
@@ -656,8 +627,8 @@
       (table.insert available-shots (+ (length available-shots) 1) :blue-shot))
     (when (= (pmem 3) 1)
       (table.insert available-shots (+ (length available-shots) 1) :triple-shot))
-    (when (= (pmem 4) 1)
-      (table.insert available-shots (+ (length available-shots) 1) :super-shot))
+    ;(when (= (pmem 4) 1)
+      ;(table.insert available-shots (+ (length available-shots) 1) :super-shot))
     available-shots)
 
 
@@ -693,20 +664,20 @@
            { :moving [ 257 258 259 260 ]
              :hurt [ 257 256 258 256 259 256 260 256 ] }))
       (= *player*.current-shot :blue-shot)
-      (do (set *player*.target-points 50)
+      (do (set *player*.target-points 20)
           (set *player*.animator.animations
            { :moving [ 400 401 402 403 ]
              :hurt [ 400 256 401 256 402 256 403 256 ] }))
       (= *player*.current-shot :triple-shot)
-      (do (set *player*.target-points 400)
+      (do (set *player*.target-points 0)
           (set *player*.animator.animations
            { :moving [ 416 417 418 419 ]
-             :hurt [ 416 256 417 256 418 256 419 256 ] }))
-      (= *player*.current-shot :super-shot)
-      (do (set *player*.target-points nil)
-          (set *player*.animator.animations
-           { :moving [ 432 433 434 435 ]
-             :hurt [ 432 256 433 256 434 256 435 256 ] })))
+             :hurt [ 416 256 417 256 418 256 419 256 ] })))
+      ;(= *player*.current-shot :super-shot)
+      ;(do (set *player*.target-points nil)
+          ;(set *player*.animator.animations
+           ;{ :moving [ 432 433 434 435 ]
+             ;:hurt [ 432 256 433 256 434 256 435 256 ] })))
 
   ;; Updates player and player's shots (called on TIC)
   (tset *player*
@@ -898,8 +869,7 @@
                   (= type :snake) (deepcopy *snake*)
                   (= type :snail) (deepcopy *snail*)
                   (= type :easy-snail) (deepcopy *easy-snail*)
-                  (= type :guard) (deepcopy *guard*)
-                  (= type :test-fish) (deepcopy *snake*))]
+                  (= type :guard) (deepcopy *guard*))]
     (tset enemy :type type)
     (tset enemy :x (or ?x (+ +width+ 8.0)))
     (tset enemy :y (or ?y (r 0 (- +height+ enemy.h))))
@@ -1000,6 +970,7 @@
   (set *anglerfish*.h 32)
   (set *anglerfish*.damage 40)
   (set *anglerfish*.health 3000)
+  (set *anglerfish*.shake true)
   (set *anglerfish*.state :arriving)
   (set *anglerfish*.reposition-flag false)
   ;; Current attack
@@ -1225,7 +1196,7 @@
                                     ;; Play sound when shot
                                     (when (> enemy.health 0) (sfx 4 33 4 3 6))
                                     (destroy-shot shot-index)
-                                    (when (= *shake* 0) (global *shake* 10))))
+                                    (when (and enemy.shake (= *shake* 0)) (global *shake* 5))))
 
     ;; Destroy enemy if it's to the left of the screen or it has no more health
     (when (or (< (+ enemy.x enemy.w) -8.0)
@@ -1409,11 +1380,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (fn update-game-debug []
-  (when (> *cam*.x 100)
-    ;(spawn-enemy :anana)))
-    (spawn-snail)))
-    ;(spawn-enemy :test-fish 220 68)))A
-    ;(spawn-enemy :anglerfish 270 53)))
+  (when (btnp 6)
+    (spawn-enemy :anglerfish)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1458,18 +1426,19 @@
       (if (= *player*.current-shot :triple-shot)
           (spr 390 (+ x 16) y 0)
           (spr 397 (+ x 16) y 0))
-      (spr 393 (+ x 16) y 0))
+      (spr 393 (+ x 16) y 0)))
 
-  (if (has-element? *player*.available-shots :super-shot)
-      (if (= *player*.current-shot :super-shot)
-          (spr 391 (+ x 24) y 0)
-          (spr 398 (+ x 24) y 0))
-      (spr 394 (+ x 24) y 0)))
+  ;(if (has-element? *player*.available-shots :super-shot)
+      ;(if (= *player*.current-shot :super-shot)
+          ;(spr 391 (+ x 24) y 0)
+          ;(spr 398 (+ x 24) y 0))
+      ;(spr 394 (+ x 24) y 0)))
 
 (fn draw-hud []
   (spr 288 5 13 0)
-  (print (.. "x " *player*.points (and *player*.target-points (.. "/" *player*.target-points)))
-         16 13 12)
+  (if (> *player*.target-points 0)
+      (print (.. *player*.points (.. "/" *player*.target-points)) 15 13 12)
+      (print *player*.points 15 13 12))
   (draw-healthbar 5 0 (// *player*.health 2))
   (draw-shot-icons 65 3))
 
@@ -1802,16 +1771,16 @@
           (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
 
       ;; Aquire triple shot
-      (and (= *player*.target-points 50) (>= *player*.points 50))
+      (and (= *player*.target-points 20) (>= *player*.points 20))
       (do (when (not= (pmem 3) 1) (pmem 3 1))
           (set icon 390)
           (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
 
-      ;; Aquire super shot
-      (and (= *player*.target-points 400) (>= *player*.points 400))
-      (do (when (not= (pmem 4) 1) (pmem 4 1))
-          (set icon 391)
-          (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
+      ;;; Aquire super shot
+      ;(and (= *player*.target-points 400) (>= *player*.points 400))
+      ;(do (when (not= (pmem 4) 1) (pmem 4 1))
+          ;(set icon 391)
+          ;(set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
 
       ;; Player didn't reach target points
       (< *player*.points *player*.target-points)
