@@ -45,10 +45,10 @@
       (= axis :y) (+ p0 (* *cam*.y factor))))
 
 ;; Draws a sprite that loops in the x and y axis
-(fn loop-spr [id x y w h pfactor ?colorkey]
+(fn loop-spr [id x y w h pfactor ?colorkey ?flip]
   (spr id (- (% (parallax x pfactor :x) (+ 240 (* w 8))) (* w 8))
           (- (% (parallax y pfactor :y) (+ 136 (* h 8))) (* h 8)) 
-          (or ?colorkey 0) 1 0 0 w h))
+          (or ?colorkey 0) 1 (or ?flip 0) 0 w h))
 
 ;; Shortcut for math.random
 (fn r [a b]
@@ -1451,9 +1451,21 @@
   (loop-spr 11 280 70 5 5 pfactor)
   (loop-spr 9 120 68 2 3 pfactor))
 
+;; Draws algae with a parallax factor pfactor
+;; 67 68 69 70
+;; 51 52 53 54
+(fn draw-algae [pfactor]
+  (local positions [ 0 15 32 39 47 56 62 79 83 98 107 113 125 132 147 153 165 169 177 182 189 198 213 224 232 240  ])
+  (local sprites [ 51 54 51 52 52 53 54 51 54 53 51 53 51 53 54 52 54 52 51 60 54 78 79 51 52 54 ])
+
+  (for [i 1 (math.min (length positions) (length sprites)) 1]
+    (local pos (. positions i))
+    (loop-spr (. sprites i) pos (+ 136 (% pos 8)) 1 5 pfactor 0 (% pos 2))))
+
 ;; Draws background decoration
 (fn draw-bg []
   (draw-cave-bg 0.1)
+  (draw-algae 0.6)
   (*bg-bubbles*:update))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
