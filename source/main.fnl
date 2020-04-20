@@ -942,7 +942,7 @@
 (fn init-enemies []
   ;; List of enemy types 
   (global *enemy-types* [ :simple-fish :stronger-fish ])
-  (global *enemy* { :w 8 :h 8 :speedx 50 :speedy 0 :damage 2.0 :health 2.0 :points 1 :emitter :pexplosion })
+  (global *enemy* { :w 8 :h 8 :speedx 50 :speedy 0 :damage 2.0 :health 2.0 :points 1 :emitter :pexplosion :flicker 0 })
   (set *enemy*.animator
        { :current-animation :moving
          :current-index 1
@@ -959,7 +959,9 @@
   (set *enemy*.draw
        (fn [self]
          (animate self)
-         (spr (get-animation-frame self.animator) self.x self.y 0)))
+         (if (and (> self.flicker 0) (< (% *tick* 5) 3))
+             (do (dec self.flicker))
+             (spr (get-animation-frame self.animator) self.x self.y 0))))
 
   ;; Simple fish
   (global *simple-fish* (deepcopy *enemy*))
@@ -1029,10 +1031,10 @@
 
   (global *anglerfish* (deepcopy *enemy*))
   (set *anglerfish*.w 32)
-  (set *anglerfish*.points 200)
+  (set *anglerfish*.points 100)
   (set *anglerfish*.h 32)
   (set *anglerfish*.damage 40)
-  (set *anglerfish*.health 5)
+  (set *anglerfish*.health 3000)
   (set *anglerfish*.shake true)
   (set *anglerfish*.boss? true)
   (set *anglerfish*.state :arriving)
@@ -1261,7 +1263,7 @@
     (each [shot-index shot (pairs *player*.shots)]
       (when (bcollides? shot enemy) (dec enemy.health shot.damage)
                                     ;; Play sound when shot
-                                    (when (> enemy.health 0) (sfx 4 33 4 3 6))
+                                    (when (> enemy.health 0) (set enemy.flicker 18) (sfx 4 33 4 3 6))
                                     (destroy-shot shot-index)
                                     (when (and enemy.shake (= *shake* 0)) (global *shake* 5))))
 
