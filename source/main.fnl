@@ -247,6 +247,17 @@
             (inc self.y (* (- self.speed.y *cam*.speedy) *dt*))
             (pix self.x self.y color)))
 
+  (global *bexplosion-particle* (deepcopy *particle*))
+  (tset *bexplosion-particle*
+        :update
+        (fn [self]
+            (var color 11)
+            (if (< self.lifetime 600)
+                (set color 6))
+            (inc self.x (+ (* (- self.speed.x *cam*.speedx) *dt*) (sin (* 0.4 (+ *tick* self.speed.y)))))
+            (inc self.y (* (+ self.speed.y *cam*.speedy) *dt*))
+            (pix self.x self.y color)))
+
   (global *pexplosion-particle* (deepcopy *particle*))
   (tset *pexplosion-particle*
         :update
@@ -257,6 +268,24 @@
             (inc self.x (+ (* (- self.speed.x *cam*.speedx) *dt*) (sin (* 0.4 (+ *tick* self.speed.y)))))
             (inc self.y (* (+ self.speed.y *cam*.speedy) *dt*))
             (pix self.x self.y color)))
+
+  (global *bcexplosion-particle* (deepcopy *particle*))
+  (tset *bcexplosion-particle*
+        :update
+        (fn [self]
+            ;(trace self.lifetime)
+            (var color 15)
+            (if (< self.lifetime 200)
+                (set color 6)
+                (< self.lifetime 400)
+                (set color 7)
+                (< self.lifetime 650)
+                (set color 7))
+            (when (= (% *tick* 4) 0)
+              (dec self.scale 2))
+            (dec self.x (* *cam*.speedx *dt*))
+
+            (circ self.x self.y self.scale color)))
 
   (global *cexplosion-particle* (deepcopy *particle*))
   (tset *cexplosion-particle*
@@ -276,7 +305,7 @@
 
             (circ self.x self.y self.scale color)))
 
-  (global *particle-types* { :cexplosion *cexplosion-particle* :bubble *bubble-particle* :pixel *pixel-particle* :pexplosion *pexplosion-particle* })
+  (global *particle-types* { :bcexplosion *bcexplosion-particle* :bexplosion *bexplosion-particle* :cexplosion *cexplosion-particle* :bubble *bubble-particle* :pixel *pixel-particle* :pexplosion *pexplosion-particle* })
 
   (global *emitters* [])
   (global *emitter* { :x 0 :y 0 ; Emitter position
@@ -337,6 +366,31 @@
   ;; Circle explosion
   (global *cexplosion-emitter* (deepcopy *emitter*))
   (set *cexplosion-emitter*.type :cexplosion)
+
+  ;; Boss explosion
+  (global *bexplosion-emitter* (deepcopy *emitter*))
+  (set *bexplosion-emitter*.type :bexplosion)
+  (set *bexplosion-emitter*.num-particles 7)
+  (set *bexplosion-emitter*.lifetime-range { :min 700 :max 1000 })
+  (set *bexplosion-emitter*.scale-range { :min 3 :max 6 })
+  (set *bexplosion-emitter*.pos-range { :xmin 0 :xmax 6 :ymin 2 :ymax 8 })
+  (set *bexplosion-emitter*.speed-range { :xmin -5 :xmax 5 :ymin -50 :ymax -40 })
+  (tset *bexplosion-emitter*
+        :update
+        (fn [self]
+          (when (> self.num-particles 0)
+            (self:emit)
+            (when (> self.num-particles 4)
+              (self:emit :bcexplosion))
+            (dec self.num-particles))
+
+          (dec self.x (* *cam*.speedx *dt*))
+
+          (each [i particle (ipairs self.particles)]
+            (particle:update)
+            (if (<= particle.lifetime 0)
+                (table.remove self.particles i)
+                (dec particle.lifetime (* *dt* 1000))))))
 
   ;; Pixel explosion
   (global *pexplosion-emitter* (deepcopy *emitter*))
@@ -942,7 +996,7 @@
 (fn init-enemies []
   ;; List of enemy types 
   (global *enemy-types* [ :simple-fish :stronger-fish ])
-  (global *enemy* { :w 8 :h 8 :speedx 50 :speedy 0 :damage 2.0 :health 2.0 :points 1 :emitter :pexplosion :flicker 0 })
+  (global *enemy* { :w 8 :h 8 :speedx 50 :speedy 0 :damage 2.0 :health 2.0 :points 1 :emitter :pexplosion :flicker 0 :no-flicker false })
   (set *enemy*.animator
        { :current-animation :moving
          :current-index 1
@@ -1012,11 +1066,12 @@
           (inc self.y (* 0.5 (sin (* 0.05 (+ *tick* self.y)))))))
 
   (global *energy-ball* (deepcopy *enemy*))
-  (set *energy-ball*.animator.animations.moving [ 265 ])
+  (set *energy-ball*.animator.animations.moving [ 265 323 324 ])
   (set *energy-ball*.points 0)
   (set *energy-ball*.health 9999)
   (set *energy-ball*.speedx 130)
   (set *energy-ball*.damage 20)
+  (set *energy-ball*.no-flicker true)
 
   (global *follower* (deepcopy *energy-ball*))
   (set *follower*.speedx 200)
@@ -1046,10 +1101,25 @@
   ;; Attack speed factor
   (set *anglerfish*.asfactor 1)
   (set *anglerfish*.attack-types [ :follow :energy :straight :pacifist ])
+  (set *anglerfish*.animator
+       { :current-animation :moving
+         :current-index 1
+         :elapsed 0
+         :speed 150
+         :animations 
+           { :moving [ 300 312 448 420 448 312 ]
+             :attack [ 160 164 160 168 ] }})
 
   (set *anglerfish*.draw
        (fn [self]
-         (spr 300 self.x self.y 0 1 0 0 4 4)))
+         (animate self)
+         (if (and (> self.flicker 0) (< (% *tick* 5) 3))
+             (do (dec self.flicker))
+             (spr (get-animation-frame self.animator) self.x self.y 0 1 0 0 4 4))))
+
+  ;(set *anglerfish*.draw
+       ;(fn [self]
+         ;(spr 300 self.x self.y 0 1 0 0 4 4)))
 
   (set *anglerfish*.move
        (fn [self]
@@ -1122,10 +1192,20 @@
                  (dec self.x (* 60 *dt*))))
 
          (= self.state :attack)
-         (self:attack)
+         (do (when (not (= self.animator.current-animation :attack))
+               (set self.animator.current-animation :attack))
+             (when (= (% *tick* 30) 0)
+               (local emitter (deepcopy *bexplosion-emitter*))
+               (set emitter.x (+ self.x 9))
+               (set emitter.y (+ self.y 12))
+               ;(set emitter. (+ self.y 16))
+               (table.insert *emitters* emitter))
+             (self:attack))
      
          (= self.state :moving)
-         (do (when (= (% self.aframe 15) 0) ; Spawn monster
+         (do (when (not (= self.animator.current-animation :moving))
+               (set self.animator.current-animation :moving))
+             (when (= (% self.aframe 15) 0) ; Spawn monster
                (local rn (r 0 100))
                (when (< rn 40)
                  (local enemy (spawn-enemy :stronger-fish self.x (+ self.y 16)))
@@ -1263,7 +1343,7 @@
     (each [shot-index shot (pairs *player*.shots)]
       (when (bcollides? shot enemy) (dec enemy.health shot.damage)
                                     ;; Play sound when shot
-                                    (when (> enemy.health 0) (set enemy.flicker 18) (sfx 4 33 4 3 6))
+                                    (when (and (> enemy.health 0) (not enemy.no-flicker)) (set enemy.flicker 18) (sfx 4 33 4 3 6))
                                     (destroy-shot shot-index)
                                     (when (and enemy.shake (= *shake* 0)) (global *shake* 5))))
 
@@ -1556,9 +1636,9 @@
   (local tycam (// (math.abs *cam*.y) 8))
   (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
   (update-goods)
-  (update-emitters)
   (*player*:draw)
   (update-enemies)
+  (update-emitters)
   (draw-hud))
 
 (fn update-camera []
