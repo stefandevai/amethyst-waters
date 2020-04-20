@@ -208,7 +208,7 @@
 (fn init-emitters []
   (global *particle* { :x 0 :y 0
                        :scale 1
-                       :lifetime 0 ; Time lift alive
+                       :lifetime 0 ; Time left alive
                        :sprite 0   ; Sprite id
                        :dspl 0 ; Random displacement
                        :speed { :x 0 :y 0 } } )
@@ -238,7 +238,6 @@
   (tset *pixel-particle*
         :update
         (fn [self]
-          12 11 10 8 6
             (var color 11)
             (if (< self.lifetime 300)
                 (set color 6)
@@ -248,30 +247,63 @@
             (inc self.y (* (- self.speed.y *cam*.speedy) *dt*))
             (pix self.x self.y color)))
 
-  (global *particle-types* { :bubble *bubble-particle* :pixel *pixel-particle* })
+  (global *pexplosion-particle* (deepcopy *particle*))
+  (tset *pexplosion-particle*
+        :update
+        (fn [self]
+            (var color 11)
+            (if (< self.lifetime 600)
+                (set color 6))
+            (inc self.x (+ (* (- self.speed.x *cam*.speedx) *dt*) (sin (* 0.4 (+ *tick* self.speed.y)))))
+            (inc self.y (* (+ self.speed.y *cam*.speedy) *dt*))
+            (pix self.x self.y color)))
 
+  (global *cexplosion-particle* (deepcopy *particle*))
+  (tset *cexplosion-particle*
+        :update
+        (fn [self]
+            ;(trace self.lifetime)
+            (var color 12)
+            (if (< self.lifetime 200)
+                (set color 6)
+                (< self.lifetime 400)
+                (set color 8)
+                (< self.lifetime 650)
+                (set color 11))
+            (when (= (% *tick* 4) 0)
+              (dec self.scale 2))
+            (dec self.x (* *cam*.speedx *dt*))
+
+            (circ self.x self.y self.scale color)))
+
+  (global *particle-types* { :cexplosion *cexplosion-particle* :bubble *bubble-particle* :pixel *pixel-particle* :pexplosion *pexplosion-particle* })
+
+  (global *emitters* [])
   (global *emitter* { :x 0 :y 0 ; Emitter position
                       :sprites [ 0 ] ; Which sprites use for particles
                       :emition-delay 10 ; At which rate particles are emitted (miliseconds)
                       :elapsed-since-emition 0 ; How much time has passed since last emission
                       :pos-range { :xmin 0 :xmax 0 :ymin 0 :ymax 0 } ; Variation of particle position in relation to the emiter's
                       :speed-range { :xmin -100 :xmax 100 :ymin -100 :ymax 100 } ; Variation of particle speed
+                      :scale-range { :min 1 :max 1 } ; Variation of particle scale
                       :lifetime-range { :min 500 :max 1000 } ; Variation of particle's lifetime in ms
                       :type :bubble ; Particle type
                       :modifier nil ; Optional emitter modifier function
                       :particle-modifier nil ; Optional particle modifier function
+                      :num-particles nil ; Optional number of particles value
                       :particles [] }) ; Table to hold particles
   
   (tset *emitter*
         :emit
-        (fn [self]
-          (var particle (deepcopy (. *particle-types* self.type)))
+        (fn [self ?type]
+          (var particle (deepcopy (. *particle-types* (or ?type self.type))))
           (set particle.x (+ self.x (r self.pos-range.xmin self.pos-range.xmax)))
           (set particle.y (+ self.y (r self.pos-range.ymin self.pos-range.ymax)))
           (set particle.speed.x (r self.speed-range.xmin self.speed-range.xmax))
           (set particle.speed.y (r self.speed-range.ymin self.speed-range.ymax))
           (set particle.sprite (. self.sprites (r 1 (length self.sprites))))
           (set particle.lifetime (r self.lifetime-range.min self.lifetime-range.max))
+          (set particle.scale (r self.scale-range.min self.scale-range.max))
 
           (when self.particle-modifier
             (self:particle-modifier particle))
@@ -302,6 +334,35 @@
           (each [k (pairs self.particles)]
             (tset self.particles k nil))))
 
+  ;; Circle explosion
+  (global *cexplosion-emitter* (deepcopy *emitter*))
+  (set *cexplosion-emitter*.type :cexplosion)
+
+  ;; Pixel explosion
+  (global *pexplosion-emitter* (deepcopy *emitter*))
+  (set *pexplosion-emitter*.type :pexplosion)
+  (set *pexplosion-emitter*.num-particles 7)
+  (set *pexplosion-emitter*.lifetime-range { :min 700 :max 1000 })
+  (set *pexplosion-emitter*.scale-range { :min 3 :max 6 })
+  (set *pexplosion-emitter*.pos-range { :xmin 0 :xmax 6 :ymin 2 :ymax 8 })
+  (set *pexplosion-emitter*.speed-range { :xmin -5 :xmax 5 :ymin -50 :ymax -40 })
+  (tset *pexplosion-emitter*
+        :update
+        (fn [self]
+          (when (> self.num-particles 0)
+            (self:emit)
+            (when (> self.num-particles 4)
+              (self:emit :cexplosion))
+            (dec self.num-particles))
+
+          (dec self.x (* *cam*.speedx *dt*))
+
+          (each [i particle (ipairs self.particles)]
+            (particle:update)
+            (if (<= particle.lifetime 0)
+                (table.remove self.particles i)
+                (dec particle.lifetime (* *dt* 1000))))))
+
   (global *bubble-emitter* (deepcopy *emitter*))
   (set *bubble-emitter*.emition-delay 300)
   (set *bubble-emitter*.type :bubble)
@@ -324,6 +385,12 @@
        (fn [emitter]
          (set emitter.x (+ *player*.x 1))
          (set emitter.y (+ *player*.y 2)))))
+
+(fn update-emitters []
+  (each [k emitter (ipairs *emitters*)]
+    (emitter:update)
+    (when (and (<= emitter.num-particles 0) (= (length emitter.particles) 0))
+          (table.remove *emitters* k))))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Cave walls                                                                                   ;;;
@@ -875,7 +942,7 @@
 (fn init-enemies []
   ;; List of enemy types 
   (global *enemy-types* [ :simple-fish :stronger-fish ])
-  (global *enemy* { :w 8 :h 8 :speedx 50 :speedy 0 :damage 2.0 :health 2.0 :points 1 })
+  (global *enemy* { :w 8 :h 8 :speedx 50 :speedy 0 :damage 2.0 :health 2.0 :points 1 :emitter :pexplosion })
   (set *enemy*.animator
        { :current-animation :moving
          :current-index 1
@@ -962,10 +1029,10 @@
 
   (global *anglerfish* (deepcopy *enemy*))
   (set *anglerfish*.w 32)
-  (set *anglerfish*.points 50)
+  (set *anglerfish*.points 200)
   (set *anglerfish*.h 32)
   (set *anglerfish*.damage 40)
-  (set *anglerfish*.health 3000)
+  (set *anglerfish*.health 5)
   (set *anglerfish*.shake true)
   (set *anglerfish*.boss? true)
   (set *anglerfish*.state :arriving)
@@ -1209,6 +1276,12 @@
       (when (<= enemy.health 0)
         (when enemy.boss? (global *boss-killed* true))
         (sfx 4 12 -1 3 6)
+        (local emitter (match enemy.emitter
+                         :pexplosion (deepcopy *pexplosion-emitter*)
+                         :cexplosion (deepcopy *cexplosion-emitter*)))
+        (set emitter.x enemy.x)
+        (set emitter.y enemy.y)
+        (table.insert *emitters* emitter)
         (spawn-goods (math.max enemy.x 60) (+ enemy.y (/ enemy.h 2)) enemy.points))
       (destroy-enemy index))))
 
@@ -1385,9 +1458,9 @@
 ;;; Game                                                                                       ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;(fn update-game-debug []
-  ;(when (btnp 6)
-    ;(spawn-enemy :anglerfish)))
+(fn update-game-debug []
+  (when (btnp 6)
+    (spawn-enemy :anglerfish)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1469,6 +1542,7 @@
   (local tycam (// (math.abs *cam*.y) 8))
   (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) (- 0 (% (math.abs *cam*.y) 8)) 0)
   (update-goods)
+  (update-emitters)
   (*player*:draw)
   (update-enemies)
   (draw-hud))
@@ -1501,7 +1575,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  ;(update-game-debug)
+  (update-game-debug)
   (update-enemy-spawners))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1767,7 +1841,7 @@
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
-  (global *game-state* "menu"))
+  (global *game-state* "win"))
 
 (fn update-win-screen []
   (cls 5)
@@ -1866,6 +1940,13 @@
         (= *game-state* "win")
         (if (< *time-elapsed* 10)
             (do (when (> *cam*.speedx 10) (set *cam*.speedx 10))
+                (when (= (% *tick* 45) 0)
+                  (sfx 9 24 -1 3 10 0)
+                  (local emitter (deepcopy *pexplosion-emitter*))
+                  (set emitter.x (r 10 230))
+                  (set emitter.y (r 10 126))
+                  (set emitter.scale-range { :min 10 :max 40 })
+                  (table.insert *emitters* emitter))
                 (draw-bg)
                 (update-game))
             (update-win-screen))
