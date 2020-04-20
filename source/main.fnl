@@ -1840,14 +1840,19 @@
   (global *enemy-wave* :first-wave)
   (global *boss-life* -1)
   (global *boss-killed* false)
+  (global *music-playing* true)
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
-  (global *game-state* "win"))
+  (global *game-state* "menu"))
 
 (fn update-win-screen []
   (cls 5)
-  (music 0)
+
+  (when (not *music-playing*)
+    (global *music-playing* true)
+    (music 0))
+
   (local title-string "YOU WON!!!")
   (local width (print title-string 0 -16 12 true 2))
   (print title-string (// (- 240 width) 2) (* 2 8) 12 true 2)
@@ -1943,9 +1948,11 @@
         (= *game-state* "win")
         (if (< *time-elapsed* 10)
             (do (when (> *cam*.speedx 10) (set *cam*.speedx 10))
-                (music)
+                (if *music-playing*
+                  (global *music-playing* false)
+                  (music))
                 (when (= (% *tick* 45) 0)
-                  (sfx 9 24 -1 3 10 0)
+                  (sfx 9 (r 20 30) -1 0 10 0)
                   (local emitter (deepcopy *pexplosion-emitter*))
                   (set emitter.x (r 10 230))
                   (set emitter.y (r 10 126))
