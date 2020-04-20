@@ -1841,7 +1841,7 @@
 
   ;; Controls which message to display in the game over screen
   (global highscore-flag false)
-  (global *game-state* "win"))
+  (global *game-state* "menu"))
 
 (fn update-win-screen []
   (cls 5)
