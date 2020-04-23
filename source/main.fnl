@@ -1552,9 +1552,9 @@
 ;;; Game                                                                                       ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;(fn update-game-debug []
-  ;(when (btnp 6)
-    ;(spawn-enemy :anglerfish)))
+(fn update-game-debug []
+  (when (btnp 6)
+    (spawn-enemy :anglerfish)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1600,7 +1600,7 @@
 (fn draw-boss-healthbar [x y]
   (when (and (> *boss-life* 0) (not *boss-killed*))
     ;; Boss icon
-    (spr 407 x (+ y 1) 0)
+    (spr 407 x (+ y 2) 0)
 
     ;; Health bar
     (spr 404 (+ x 3) y 0 1 0 0 2 1)
@@ -1669,7 +1669,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  ;(update-game-debug)
+  (update-game-debug)
   (update-enemy-spawners))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
