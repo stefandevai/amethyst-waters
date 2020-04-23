@@ -1962,6 +1962,10 @@
   (print "Press Z to go back to the title screen" (// (- 240 width) 2) (+ (* 13 8) 6) 12)
 
   (when (btnp 4)
+    ;; Reset icosahedron
+    (global *icosahedron* [])
+    (init-icosahedron)
+    ;; Clear map
     (for [i 0 7]
       (clear-map-block i))
     (init)
