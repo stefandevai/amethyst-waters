@@ -1,8 +1,8 @@
 # Amethyst Waters
 
-My entry for the Spring Lisp Game Jam 2020.
+![Amethyst Waters gameplay.](./assets/new-particles.gif)
 
-The code got a bit messy towards the end of the jam as I rushed to finish it in time. There will be however some post-mortem refactoring.
+My entry for the Spring Lisp Game Jam 2020. You can play the game [here](https://stefandevai.itch.io/amethyst-waters).
 
-You can play the game [here](https://stefandevai.itch.io/amethyst-waters).
+Made with the awesome [TIC-80](https://github.com/nesbox/TIC-80).
 
