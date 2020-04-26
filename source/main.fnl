@@ -899,7 +899,8 @@
   (tset *player*
         :hurt (fn [self damage]
                 (if (not= self.state :hurt)
-                    (do (dec self.health damage)
+                    (do (dec self.health (math.max 1 (r (- damage 5) damage)))
+                    ;(do (dec self.health 0)
                         (if (<= self.health 0)
                             (self:die)
                             (do (sfx 4 60 -1 3 88)
@@ -1086,13 +1087,15 @@
 
   (global *anglerfish* (deepcopy *enemy*))
   (set *anglerfish*.w 32)
-  (set *anglerfish*.points 100)
   (set *anglerfish*.h 32)
+  (set *anglerfish*.points 100)
   (set *anglerfish*.damage 40)
-  (set *anglerfish*.health 3000)
+  (set *anglerfish*.health 2000)
   (set *anglerfish*.shake true)
   (set *anglerfish*.boss? true)
   (set *anglerfish*.state :arriving)
+  (set *anglerfish*.next-state :centering)
+  (set *anglerfish*.tick 0)
   (set *anglerfish*.reposition-flag false)
   ;; Current attack
   (set *anglerfish*.cattack nil)
@@ -1113,30 +1116,29 @@
   (set *anglerfish*.draw
        (fn [self]
          (animate self)
-         (if (and (> self.flicker 0) (< (% *tick* 5) 3))
+         (if (and (> self.flicker 0) (< (% self.tick 5) 3))
              (do (dec self.flicker))
              (spr (get-animation-frame self.animator) self.x self.y 0 1 0 0 4 4))))
 
-  ;(set *anglerfish*.draw
-       ;(fn [self]
-         ;(spr 300 self.x self.y 0 1 0 0 4 4)))
-
   (set *anglerfish*.move
        (fn [self]
-         (dec self.y (* 1.5 (sin (* 0.04 *tick*))))))
+         ;(inc self.y (+ 68 (* 50 (sin (* 0.03 self.tick)))))))
+         (inc self.y (- (* 1.5 (sin (* 0.04 (+ self.tick 39)))) 0.0))))
 
   (set *anglerfish*.finish-attack
    (fn [self]
      (set self.aframe 0)
+     (set self.tick 0)
      (set self.cattack nil)
      (set self.reposition-flag false)
-     (set self.state :moving)))
+     (set self.state :centering)
+     (set self.next-state :moving)))
 
   (set *anglerfish*.attack
    (fn [self]
      (when (not self.cattack)
        (set self.cattack (. self.attack-types (r 1 (length self.attack-types)))))
-     (if (not self.reposition-flag)
+     (if (and (not self.reposition-flag) (or (= self.cattack :straight) (= self.cattack :follow)))
            (if (< self.y (- *player*.y 1))
              (inc self.y (* 50 *dt*))
              (> self.y (+ *player*.y 1))
@@ -1144,28 +1146,30 @@
              (set self.reposition-flag true))
      
          (= self.cattack :follow)
-         (do (when (= (% self.aframe 100) 0)
-               (spawn-enemy :follower self.x self.y))
-             (when (= (% self.aframe 600) 0)
+         (do (when (= (% self.tick 100) 0)
+               (spawn-enemy :follower self.x self.y)
+               (set self.reposition-flag false))
+             (when (= (% self.tick 600) 0)
                (self:finish-attack)))
 
          (= self.cattack :straight)
-         (do (when (= (% self.aframe 150) 0)
+         (do (when (= (% self.tick 150) 0)
                (global *shake* 0)
                (set self.reposition-flag false))
-             (when (= (% self.aframe 3) 0)
+             (when (= (% self.tick 3) 0)
                (local ball (spawn-enemy :energy-ball self.x self.y))
                (set ball.speedx 500))
              (global *shake* 5)
-             (when (= (% self.aframe 500) 0)
+             (when (= (% self.tick 500) 0)
                (self:finish-attack)))
 
          (= self.cattack :energy)
+         ;(or (= self.cattack :energy) (= self.cattack :follow) (= self.cattack :straight))
          (do (self:move)
-             (when (= (% self.aframe (math.round (* 15 self.asfactor))) 0)
+             (when (= (% self.tick (math.round (* 15 self.asfactor))) 0)
                (sfx 3 20 -1 3 8 3)
-               (spawn-enemy :energy-ball self.x self.y))
-             (when (= (% self.aframe 500) 0)
+               (spawn-enemy :energy-ball self.x (+ self.y (/ self.h 2))))
+             (when (= (% self.tick 500) 0)
                (self:finish-attack)))
          
          (= self.cattack :pacifist)
@@ -1174,7 +1178,8 @@
   (set *anglerfish*.update
    (fn [self]
      ;(trace self.health)
-     (inc self.aframe)
+     ;(inc self.tick)
+     (inc self.tick)
 
      (when (not= self.state :arriving)
        (global *boss-life* (math.max 0 self.health)))
@@ -1183,36 +1188,46 @@
        (set self.asfactor 0.8))
 
      (if (= self.state :arriving)
-         (if (< self.aframe 200)
+         (if (< self.tick 200)
              (when (> *cam*.speedx 15) (set *cam*.speedx 15))
              (do (when (< *cam*.speedx 50)
                    (set *cam*.speedx 50))
                  (when (< self.x 200)
-                   (set self.state :moving))
+                   (set self.state :centering)
+                   (set self.next-state :moving))
                  (dec self.x (* 60 *dt*))))
 
          (= self.state :attack)
          (do (when (not (= self.animator.current-animation :attack))
                (set self.animator.current-animation :attack))
-             (when (= (% *tick* 30) 0)
+             (when (= (% self.tick 30) 0)
                (local emitter (deepcopy *bexplosion-emitter*))
                (set emitter.x (+ self.x 9))
                (set emitter.y (+ self.y 12))
                ;(set emitter. (+ self.y 16))
                (table.insert *emitters* emitter))
              (self:attack))
+
+         (= self.state :centering)
+         (do (if (< (+ self.y (/ self.h 2)) 65)
+                 (inc self.y (* 40 *dt*))
+                 (> (+ self.y (/ self.h 2)) 71)
+                 (dec self.y (* 40 *dt*))
+                 (do (set self.tick 0)
+                     (set self.state self.next-state))))
      
          (= self.state :moving)
          (do (when (not (= self.animator.current-animation :moving))
                (set self.animator.current-animation :moving))
-             (when (= (% self.aframe 15) 0) ; Spawn monster
+             (when (= (% self.tick 15) 0) ; Spawn monster
                (local rn (r 0 100))
                (when (< rn 40)
                  (local enemy (spawn-enemy :stronger-fish self.x (+ self.y 16)))
                  (set enemy.health 16)))
-             (when (= (% self.aframe 400) 0)
+             (when (= (% self.tick 400) 0)
                (self:finish-attack)
-               (set self.state :attack))
+               (set self.state :centering)
+               (set self.next-state :attack))
              (self:move)))))
 
   (global *snake* (deepcopy *enemy*))
