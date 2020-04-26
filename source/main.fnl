@@ -1556,14 +1556,14 @@
   (loop-spr 9 120 68 2 3 pfactor))
 
 ;; Draws algae with a parallax factor pfactor
-;; 67 68 69 70
-;; 51 52 53 54
 (fn draw-algae [pfactor]
   (local positions [ 0 15 32 39 47 56 62 79 83 98 107 113 125 132 147 153 165 169 177 182 189 198 213 224 232 240  ])
   (local sprites [ 51 54 51 52 52 53 54 51 54 53 51 53 51 53 54 52 54 52 51 60 54 78 79 51 52 54 ])
 
   (for [i 1 (math.min (length positions) (length sprites)) 1]
     (local pos (. positions i))
+    (trace (length positions))
+    (trace (length sprites))
     (loop-spr (. sprites i) pos (+ 136 (% pos 8)) 1 5 pfactor 0 (% pos 2))))
 
 ;; Draws background decoration
