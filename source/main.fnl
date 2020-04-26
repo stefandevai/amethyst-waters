@@ -1583,9 +1583,9 @@
 ;;; Game                                                                                       ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(fn update-game-debug []
-  (when (btnp 6)
-    (spawn-enemy :anglerfish)))
+;(fn update-game-debug []
+  ;(when (btnp 6)
+    ;(spawn-enemy :anglerfish)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1700,7 +1700,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  (update-game-debug)
+  ;(update-game-debug)
   (update-enemy-spawners))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
