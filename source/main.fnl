@@ -1314,10 +1314,12 @@
   (global *guard* (deepcopy *enemy*))
   (set *guard*.animator.animations.moving [ 304 ])
   (set *guard*.health 10)
+  (set *guard*.tick 0)
 
   (set *guard*.update
    (fn [self]
-       (when ( = (% (+ *tick* (math.round self.x)) 60) 0)
+       (inc self.tick)
+       (when ( = (% self.tick 60) 0)
          (var ball (spawn-enemy :energy-ball self.x self.y))
          (set ball.animator.animations.moving [ 264 308 309 308 ])
          (set ball.animator.speed 50)
