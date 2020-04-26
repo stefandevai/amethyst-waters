@@ -900,8 +900,8 @@
   (tset *player*
         :hurt (fn [self damage]
                 (when (and (not= self.state :hurt) (not= *game-state* "game-over"))
-                      (dec self.health 0)
-                      ;(dec self.health (math.max 1 (r (- damage 5) damage)))
+                      ;(dec self.health 0)
+                      (dec self.health (math.max 1 (r (- damage 5) damage)))
                       (if (<= self.health 0)
                           (do (global *time-elapsed* 0)
                               (set self.state :dead)
