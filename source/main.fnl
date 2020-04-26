@@ -874,10 +874,11 @@
                       (table.remove self.shots index))))
 
                 ;; Motor emitter
-                (self.emitter:update)
+                (when (not (= self.state :dead))
+                  (self.emitter:update)
 
-                (animate self)
-                (spr (get-animation-frame self.animator) self.x self.y 0)))
+                  (animate self)
+                  (spr (get-animation-frame self.animator) self.x self.y 0))))
 
   ;; Performs player shoot action
   (fn store-shot [shot]
@@ -898,26 +899,34 @@
   ;; Hurts player 
   (tset *player*
         :hurt (fn [self damage]
-                (if (not= self.state :hurt)
-                    (do (dec self.health (math.max 1 (r (- damage 5) damage)))
-                    ;(do (dec self.health 0)
-                        (if (<= self.health 0)
-                            (self:die)
-                            (do (sfx 4 60 -1 3 88)
-                                ;;; Increase game speed when damaged
-                                ;(when (< *cam*.speedx *cam*.max-speed) (inc *cam*.speedx 5))
-                                (global *shake* 18)
-                                (set self.animator.current-animation :hurt)
-                                (set self.state :hurt)
-                                (set self.hurt-timer 90)))))))
+                (when (and (not= self.state :hurt) (not= *game-state* "game-over"))
+                      (dec self.health (math.max 1 (r (- damage 5) damage)))
+                      (if (<= self.health 0)
+                          (do (global *time-elapsed* 0)
+                              (set self.state :dead)
+                              (local emitter (deepcopy *pexplosion-emitter*))
+                              (set emitter.x self.x)
+                              (set emitter.y self.y)
+                              (set emitter.num-particles 17)
+                              (set emitter.lifetime-range { :min 800 :max 1200 })
+                              (set emitter.scale-range { :min 6 :max 9 })
+                              (set emitter.pos-range { :xmin 0 :xmax 16 :ymin 2 :ymax 18 })
+                              (table.insert *emitters* emitter)
+                              (sfx 4 30 -1 3 15 -1)
+                              ;; Stop camera
+                              (set *cam*.speedx 0)
+                              (global *game-state* "game-over"))
+                          (do (sfx 4 60 -1 3 88)
+                              ;;; Increase game speed when damaged
+                              ;(when (< *cam*.speedx *cam*.max-speed) (inc *cam*.speedx 5))
+                              (global *shake* 18)
+                              (set self.animator.current-animation :hurt)
+                              (set self.state :hurt)
+                              (set self.hurt-timer 90))))))
 
   (tset *player*
         :crush (fn [self]
-                 (self:hurt 100)))
-
-  (tset *player*
-        :die (fn [self]
-                 (global *game-state* "game-over"))))
+                 (self:hurt 105))))
 
 ;; Destroys shot with a certain index from *player*.shots
 (fn destroy-shot [index]
@@ -1633,7 +1642,7 @@
     (when (> *boss-life* 0)
       (var fill-color 7)
       (for [j y (+ y 2) 1]
-        (for [i (+ x 3) (+ x 3 (math.round (/ *boss-life* 13.452914)) -1) 1]
+        (for [i (+ x 3) (+ x 3 (math.round (/ *boss-life* 8.968609)) -1) 1]
           (pix (+ i 4) (+ j 4) fill-color))))))
 
 (fn draw-hud []
@@ -1989,54 +1998,56 @@
     (global *game-state* "menu")))
 
 (fn update-game-over []
-  (cls 5)
-  ;; Print multiple times with a small offset for a bold effect
-  (local title-string "YOU CRASHED")
-  (print title-string (- 256 (* (length title-string) 16)) (* 2 8) 12 true 2)
-  (print title-string (- (- 256 (* (length title-string) 16)) 1) (* 2 8) 12 true 2)
-  (print title-string (- 256 (* (length title-string) 16)) (- (* 2 8) 1) 12 true 2)
-  (spr 288 32 21 0)
-  (print (.. "x " *player*.points) 42 21 12)
-  ;; Aquire triple shot
-  (var middle-text [])
-  (var icon nil)
-  (var padding 0)
-  ;; Aquire blue shot
-  (if (and (= *player*.target-points 15) (>= *player*.points 15))
-      (do (when (not= (pmem 2) 1) (pmem 2 1))
-          (set icon 389)
-          (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
+  (if (< *time-elapsed* 2)
+    (draw-bg)
+    (do (cls 5)
+        ;; Print multiple times with a small offset for a bold effect
+        (local title-string "YOU CRASHED")
+        (print title-string (- 256 (* (length title-string) 16)) (* 2 8) 12 true 2)
+        (print title-string (- (- 256 (* (length title-string) 16)) 1) (* 2 8) 12 true 2)
+        (print title-string (- 256 (* (length title-string) 16)) (- (* 2 8) 1) 12 true 2)
+        (spr 288 32 21 0)
+        (print (.. "x " *player*.points) 42 21 12)
+        ;; Aquire triple shot
+        (var middle-text [])
+        (var icon nil)
+        (var padding 0)
+        ;; Aquire blue shot
+        (if (and (= *player*.target-points 15) (>= *player*.points 15))
+            (do (when (not= (pmem 2) 1) (pmem 2 1))
+                (set icon 389)
+                (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
 
-      ;; Aquire triple shot
-      (and (= *player*.target-points 50) (>= *player*.points 20))
-      (do (when (not= (pmem 3) 1) (pmem 3 1))
-          (set icon 390)
-          (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
+            ;; Aquire triple shot
+            (and (= *player*.target-points 50) (>= *player*.points 20))
+            (do (when (not= (pmem 3) 1) (pmem 3 1))
+                (set icon 390)
+                (set middle-text [ "YOU UNLOCKED A NEW WEAPON!" "Press A or S to change weapons." ]))
 
-      ;; Player didn't reach target points
-      (< *player*.points *player*.target-points)
-      (set middle-text [(.. "Get " *player*.target-points " amethysts") "to unlock your next weapon!"])
+            ;; Player didn't reach target points
+            (< *player*.points *player*.target-points)
+            (set middle-text [(.. "Get " *player*.target-points " amethysts") "to unlock your next weapon!"])
 
-      ;; If already has super shot
-      (set middle-text ["You have superpowers!!"]))
+            ;; If already has super shot
+            (set middle-text ["You have superpowers!!"]))
 
-  (when icon
-    (spr icon 114 44 0 2)
-    (set padding 8))
-  (for [i 1 (length middle-text) 1]
-    (local width (print (. middle-text i) 0 -16))
-    (print (. middle-text i) (// (- 240 width) 2) (+ 60 padding (* 8 (- i 1))) 15))
+        (when icon
+          (spr icon 114 44 0 2)
+          (set padding 8))
+        (for [i 1 (length middle-text) 1]
+          (local width (print (. middle-text i) 0 -16))
+          (print (. middle-text i) (// (- 240 width) 2) (+ 60 padding (* 8 (- i 1))) 15))
 
-  (print "Press Z to test your skills again!" 32 (+ (* 13 8) 6) 12)
-  ;(print "and try your luck again." (* 9 8) (+ (* 14 8) 6) 12)
+        (print "Press Z to test your skills again!" 32 (+ (* 13 8) 6) 12)
+        ;(print "and try your luck again." (* 9 8) (+ (* 14 8) 6) 12)
 
-  (when (btnp 4)
-    (for [i 0 7]
-      (clear-map-block i))
-    (init)
-    ;; Time when game session is started
-    (global *initial-time* (time))
-    (global *game-state* "game")))
+        (when (btnp 4)
+          (for [i 0 7]
+            (clear-map-block i))
+          (init)
+          ;; Time when game session is started
+          (global *initial-time* (time))
+          (global *game-state* "game")))))
 
 
 (global TIC ; Function called once every frame
@@ -2080,12 +2091,16 @@
   (fn []
     (if (= *game-state* "game")
         (draw-game)
+        (and (= *game-state* "game-over") (< *time-elapsed* 2))
+        (draw-game)
         (and (= *game-state* "win") (< *time-elapsed* 10))
         (draw-game))))
 
 (global scanline
  (fn [row]
      (if (= *game-state* "game")
+         (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2))
+         (and (= *game-state* "game-over") (< *time-elapsed* 2))
          (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2))
          (and (= *game-state* "win") (< *time-elapsed* 10))
          (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2)))))
