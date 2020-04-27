@@ -929,6 +929,7 @@
                               (sfx 4 30 -1 3 15 -1)
                               ;; Stop camera
                               (set *cam*.speedx 0)
+                              (music 1)
                               (global *game-state* "game-over"))
                           (do (sfx 4 60 -1 3 88)
                               ;;; Increase game speed when damaged
@@ -1942,6 +1943,7 @@
   (when (btnp 4)
     (*bg-bubbles*:clear)
     (set *bg-bubbles*.emition-delay 1000)
+    (music 0)
     ;; Time when game session is started
     (global *initial-time* (time))
     (global *game-state* "game")))
@@ -1955,7 +1957,7 @@
 
   (init-icosahedron)
 
-  ;(music 0)
+  (music 1)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1999,8 +2001,8 @@
   (cls 5)
 
   (when (not *music-playing*)
-    (global *music-playing* true))
-    ;(music 0))
+    (global *music-playing* true)
+    (music 1))
 
   (local title-string "YOU WON!!!")
   (local width (print title-string 0 -16 12 true 2))
@@ -2078,6 +2080,7 @@
           (for [i 0 7]
             (clear-map-block i))
           (init)
+          (music 0)
           ;; Time when game session is started
           (global *initial-time* (time))
           (global *game-state* "game")))))
@@ -2104,8 +2107,8 @@
         (if (< *time-elapsed* 10)
             (do (when (> *cam*.speedx 10) (set *cam*.speedx 10))
                 (if *music-playing*
-                  (global *music-playing* false))
-                  ;(music))
+                  (global *music-playing* false)
+                  (music))
                 (when (= (% *tick* 45) 0)
                   (sfx 9 (r 20 30) -1 0 10 0)
                   (local emitter (deepcopy *pexplosion-emitter*))
