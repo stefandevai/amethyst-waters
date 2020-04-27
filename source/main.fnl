@@ -716,7 +716,7 @@
             (deepcopy *blue-shot*)))
 
       (and (= type :triple-shot) (= axis :x))
-      (do (sfx 7 50 -1 3 8 3)
+      (do (sfx 7 30 -1 3 8 3)
           (local shot1 (deepcopy *blue-shot*))
           (set shot1.speedy 2)
           (set shot1.spr 307)
@@ -769,7 +769,7 @@
          })
 
   (set *player*.current-shot (. *player*.available-shots (length *player*.available-shots)))
-  ;(set *player*.current-shot :blue-shot)
+  (set *player*.current-shot :triple-shot)
 
   ;; Player animations
   (tset *player*
