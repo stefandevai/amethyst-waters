@@ -779,7 +779,7 @@
 
   ;; Player table object
   (global *player* {
-           :x 40 :y 68
+           :x 32 :y 68
            :w 8   :h 8
            :vx 0  :vy 0
            :shots []
@@ -1757,6 +1757,7 @@
 ;; Adapted from http://www.songho.ca/opengl/gl_sphere.html
 
 (global *icosahedron* [])
+(global *t-icosahedron* [])
 
 ;; Returns the minimum z value of the vertices of a triangle
 (fn minz [t]
@@ -1882,7 +1883,7 @@
     (inc index 4)))
 
 (fn sort-icosahedron []
-  (table.sort *icosahedron* (fn [a b]
+  (table.sort *t-icosahedron* (fn [a b]
                               (if (< (minz b) (minz a))
                                   true
                                   (> (minz b) (minz a))
@@ -1921,9 +1922,8 @@
       (table.insert new-triangle (rotate-point (. triangle j) x y z)))
     ;; Insert same id
     (table.insert new-triangle (. triangle 4))
-    (tset *icosahedron* i new-triangle)))
+    (tset *t-icosahedron* i new-triangle)))
 
-;; Rotate a point with angles gamma (x), beta (y) and alpha (z)
 (fn translate-point [point x y z]
   (local px (. point 1))
   (local py (. point 2))
@@ -1939,7 +1939,7 @@
       (table.insert new-triangle (translate-point (. triangle j) x y z)))
     ;; Insert same id
     (table.insert new-triangle (. triangle 4))
-    (tset *icosahedron* i new-triangle)))
+    (tset *t-icosahedron* i new-triangle)))
 
 (fn transform-icosahedron [r t]
   (each [i triangle (pairs *icosahedron*)]
@@ -1950,7 +1950,7 @@
                                                   t.x t.y t.z)))
     ;; Insert same id
     (table.insert new-triangle (. triangle 4))
-    (tset *icosahedron* i new-triangle)))
+    (tset *t-icosahedron* i new-triangle)))
 
 (fn get-tri-color [triangle]
   (local p1 (. triangle 1))
@@ -1963,8 +1963,8 @@
       0))
     
 (fn draw-icosahedron []
-  (for [index 1 (length *icosahedron*) 1]
-    (local triangle (. *icosahedron* index))
+  (for [index 1 (length *t-icosahedron*) 1]
+    (local triangle (. *t-icosahedron* index))
     (local color-id (% (. triangle 4) 5))
 
     (var color 7)
@@ -1978,37 +1978,37 @@
 
 (fn init-icosahedron []
   (build-icosahedron-triangles)
-  (sort-icosahedron))
+  (sort-icosahedron)
+  (global *t-icosahedron* (deepcopy *icosahedron*)))
 
-(fn update-icosahedron []
+(fn ico-r [offset]
+  (- 0xff (math.abs (math.round (* 150 (sin (* (+ *tick* offset) 0.01)))))))
+(fn ico-g [offset]
+  (+ 0x00 (math.abs (math.round (* 50 (sin (* (+ *tick* offset) 0.07)))))))
+(fn ico-b [offset]
+  (- 0x88 (math.abs (math.round (* 50 (sin (* (+ *tick* offset) 0.07)))))))
+  ;0x66)
+(fn ico-pal [i offset]
+  (pal i (ico-r offset) (ico-g offset) (ico-b offset)))
+
+(fn update-icosahedron [?offset-y]
   ;; Change color palette
-  (pal 7
-       (- 0xff (math.abs (math.round (* 150 (sin (* *tick* 0.01))))))
-       ;0xfa
-       (+ 0x00 (math.abs (math.round (* 50 (sin (* *tick* 0.07))))))
-       0xda)
-  (pal 0
-       (- 0xff (math.abs (math.round (* 150 (sin (* (+ *tick* 100) 0.01))))))
-       ;0xfa
-       (+ 0x00 (math.abs (math.round (* 50 (sin (* (+ *tick* 100) 0.07))))))
-       0xda)
-  (pal 15
-       (- 0xff (math.abs (math.round (* 150 (sin (* (+ *tick* 200) 0.01))))))
-       ;0xfa
-       (+ 0x00 (math.abs (math.round (* 50 (sin (* (+ *tick* 200) 0.07))))))
-       0xda)
-
-  (pal 8
-       (- 0x88 (math.abs (math.round (* 80 (sin (* (+ *tick* 50) 0.01))))))
-       (+ 0x00 (math.abs (math.round (* 30 (sin (* (+ *tick* 50) 0.07))))))
-       0x55)
-  (pal 14
-       (- 0x88 (math.abs (math.round (* 80 (sin (* (+ *tick* 150) 0.01))))))
-       (+ 0x00 (math.abs (math.round (* 30 (sin (* (+ *tick* 150) 0.07))))))
-       0x55)
+  (ico-pal 7 0)
+  (ico-pal 0 100)
+  (ico-pal 15 200)
+  (ico-pal 8 50)
+  (ico-pal 14 150)
+  (pal 6 
+       (- 0x2a (math.abs (math.round (* 16 (sin (* *tick* 0.01))))))
+       (- 0x37 (math.abs (math.round (* 27 (sin (* *tick* 0.01))))))
+       (- 0x58 (math.abs (math.round (* 55 (sin (* *tick* 0.01)))))))
   ;; Translate and rotate in one loop
-  (transform-icosahedron { :x (* (/ math.pi 3) *dt*) :y (* (/ math.pi 2) *dt*) :z 0 }
-                         { :x 0 :y (* 0.11 (sin (* *tick* 0.05))) :z 0 })
+  ;(transform-icosahedron { :x (* (/ math.pi 3) *time-elapsed*) :y (* (/ math.pi 2) *time-elapsed*) :z 0 }
+                         ;{ :x 0 :y (- (* 0.11 (sin (* *tick* 0.05))) (or ?offset-y 0)) :z 0 })
+  (transform-icosahedron { :x (* (/ math.pi 4) *elapsed*) :y (* (/ math.pi 2) *elapsed*) :z 0 }
+                         { :x 0 :y (- (* 3 (sin (* *tick* 0.05))) (or ?offset-y 0)) :z 0 })
+  ;(transform-icosahedron { :x 0 :y 0 :z 0 }
+                         ;{ :x 0 :y (- 0 (or ?offset-y 0)) :z 0 })
   ;; Sort rendering order for icosahedron triangles
   (sort-icosahedron))
 
@@ -2033,17 +2033,71 @@
     (print "- Press Z to play the game -" (* 6 8) (+ (* 12 8) 6) 12))
 
   (when (btnp 4)
-    (*bg-bubbles*:clear)
+    ;(*bg-bubbles*:clear)
+    (sfx 5 55 -1 3 6 -2)
+    (global *time-elapsed* -1.0)
+    (music 0)
+    ;; Time when game session is started
+    (global *initial-time* (time))
+    (global *game-state* "t-menu-game")))
+
+(fn ease-in-back [x]
+  (- (* 2.70158 x x x) (* 1.70158 x x)))
+
+(fn t-menu-game []
+  (cls 5)
+
+  (var map-pos 196)
+  (var particle-speed 0)
+  (var title-speed 0)
+  (var ico-speed 0)
+  (var message-speed 0)
+  (var message-delay 15)
+  (when (> *time-elapsed* 0.0)
+    (set map-pos (- 236 (* 180 (ease-in-back (* 0.5 *time-elapsed*)))))
+    (set particle-speed (* 8 (ease-in-back (* 0.5 *time-elapsed*))))
+    (set title-speed (* 200 (ease-in-back (* 0.5 *time-elapsed*))))
+    (set ico-speed (* 260 (ease-in-back (* 0.5 *time-elapsed*))))
+    (set message-speed (* 300 (ease-in-back (* 0.5 *time-elapsed*))))
+    (set message-delay 10))
+
+  (*bg-bubbles*:update)
+
+  (each [k part (pairs *bg-bubbles*.particles)]
+    (dec part.y particle-speed))
+
+  ;; Print multiple times with a small offset for a bold effect
+  (print "AMETHYST WATERS" (* 4 8) (- (* 3 8) title-speed) 12 true 2)
+  (print "AMETHYST WATERS" (- (* 4 8) 1) (- (* 3 8) title-speed) 12 true 2)
+  (print "AMETHYST WATERS" (* 4 8) (- (* 3 8) 1 title-speed) 12 true 2)
+
+  (update-icosahedron ico-speed)
+  (draw-icosahedron)
+
+  (when (< (% *tick* message-delay) 10)
+    (print "- Press Z to play the game -" (* 6 8) (- (+ (* 12 8) 6) message-speed) 12))
+  
+  (local txcam (// (math.abs *cam*.x) 8))
+  (local tycam (// (math.abs *cam*.y) 8))
+
+  (when (< map-pos 138)
     (pal 0 0x14 0x14 0x28)
     (pal 7 0x8e 0x2e 0x91)
     (pal 8 0x3c 0x40 0x55)
     (pal 14 0x20 0x18 0x34)
     (pal 15 0xf6 0x61 0xba)
-    (set *bg-bubbles*.emition-delay 1000)
-    (music 0)
-    ;; Time when game session is started
-    (global *initial-time* (time))
-    (global *game-state* "game")))
+    (pal 6 0x20 0x2d 0x51))
+  (if (<= map-pos 0)
+      (do (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) 0 -1)
+          (set *player*.y 68)
+          (set *bg-bubbles*.emition-delay 1000)
+          (global *game-state* "game"))
+      (do (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) map-pos -1)
+          (set *player*.y (+ 68 map-pos))))
+
+  (*player*:draw)
+  (update-emitters))
+
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 ;;; Main functions                                                                               ;;;
@@ -2070,6 +2124,8 @@
   (global *dt* 0.0)
   (global *previous-time* (time))
   (global *tick* 0)
+  ;; Tick for transitions
+  (global *t-tick* 0)
   (global *elapsed* 0)
   (global *time-elapsed* 0)
 
@@ -2120,6 +2176,7 @@
   (when (btnp 4)
     ;; Reset icosahedron
     (global *icosahedron* [])
+    (global *t-icosahedron* [])
     (init-icosahedron)
     ;; Clear map
     (for [i 0 7]
@@ -2190,15 +2247,19 @@
     (global *previous-time* (time))
     (incg *time-elapsed* *dt*)
     (incg *tick*)
+    ;; All time elapsed since the start of the game session
+    (incg *elapsed* *dt*)
 
     (if (= *game-state* "game")
         (do (update-game)
-            (draw-bg)
-            ;; Time elapsed since the start of the game session
-            (global *elapsed* (- *previous-time* *initial-time*)))
+            (draw-bg))
 
         (= *game-state* "menu")
         (update-menu) 
+
+        ;; Transition from menu to game
+        (= *game-state* "t-menu-game")
+        (t-menu-game) 
 
         (= *game-state* "win")
         (if (< *time-elapsed* 10)
