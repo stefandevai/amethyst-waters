@@ -779,7 +779,7 @@
 
   ;; Player table object
   (global *player* {
-           :x -10 :y 68
+           :x 32 :y 68
            :w 8   :h 8
            :vx 0  :vy 0
            :shots []
@@ -1736,6 +1736,8 @@
   (set *cam*.y (+ *cam*.oy *cam*.offsety)))
 
 (fn update-game []
+  ;; Reset map-offset-y
+  (when (not= map-offset-y 0) (global map-offset-y 0))
   (update-camera)
   (update-cave-walls)
 
@@ -2025,6 +2027,14 @@
 ;;; Menu                                                                                         ;;;
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
 
+(fn ease-in-back [x]
+  (- (* 2.70158 x x x) (* 1.70158 x x)))
+
+(fn ease-in-out-cubic [x]
+  (if (< x 0.5)
+      (* 4 x x x)
+      (- 1 (/ (math.pow (+ (* -2 x) 2) 3) 2))))
+
 (fn update-menu []
   (cls 5)
 
@@ -2034,6 +2044,13 @@
   (print "AMETHYST WATERS" (* 4 8) (* 3 8) 12 true 2)
   (print "AMETHYST WATERS" (- (* 4 8) 1) (* 3 8) 12 true 2)
   (print "AMETHYST WATERS" (* 4 8) (- (* 3 8) 1) 12 true 2)
+
+  (local acc (math.round (ease-in-out-cubic (* 5 *elapsed*))))
+  (if (< acc 230)
+      (pal 12 (+ 0x0c acc)
+              (+ 0x0c acc)
+              (+ 0x10 acc))
+      (pal 12 0xf2 0xf4 0xf6))
 
   (update-icosahedron)
   (draw-icosahedron)
@@ -2045,13 +2062,11 @@
     ;(*bg-bubbles*:clear)
     (sfx 5 55 -1 3 6 -2)
     (global *time-elapsed* -1.0)
-    (music 0)
+    (pal 12 0xf2 0xf4 0xf6)
+    (set *player*.x -10)
     ;; Time when game session is started
     (global *initial-time* (time))
     (global *game-state* "t-menu-game")))
-
-(fn ease-in-back [x]
-  (- (* 2.70158 x x x) (* 1.70158 x x)))
 
 (fn t-menu-game []
   (cls 5)
@@ -2104,7 +2119,8 @@
       (do (set *bg-bubbles*.emition-delay 1000)
           (set *player*.y 68)
           (if (>= *player*.x 32)
-              (global *game-state* "game")
+              (do (music 0)
+                  (global *game-state* "game"))
               (inc *player*.x (* 60 *dt*))))
       (do (set *player*.y (+ 68 map-offset-y))))
 
