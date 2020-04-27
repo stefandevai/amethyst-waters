@@ -32,6 +32,27 @@
 (fn cos [a]
   (math.cos a))
 
+;; Sets the palette indice i to specified rgb
+;; or return the colors if no rgb values are declared.
+;; See: <https://github.com/nesbox/TIC-80/wiki/code-examples-and-snippets#pal-function>
+(fn pal [i r g b]
+  (if (and (not r) (not g) (not b))
+      (values (peek (+ 0x3fc0 (* i 3)))
+              (peek (+ 0x3fc0 (* i 3) 1))
+              (peek (+ 0x3fc0 (* i 3) 2)))
+      (do (var rc r)
+          (var gc g)
+          (var bc b)
+          (when (or (not rc) (< rc 0)) (set rc 0))
+          (when (or (not gc) (< gc 0)) (set gc 0))
+          (when (or (not bc) (< bc 0)) (set bc 0))
+          (when (> rc 255) (set rc 255))
+          (when (> gc 255) (set gc 255))
+          (when (> bc 255) (set bc 255))
+          (poke (+ 0x3fc0 (* i 3) 2) b)
+          (poke (+ 0x3fc0 (* i 3) 1) g)
+          (poke (+ 0x3fc0 (* i 3)) r))))
+
 ;; Returns true if the object is outsite the screen boundaries
 (fn out-of-bounds? [object]
   (or (< object.x 0)
@@ -1902,6 +1923,35 @@
     (table.insert new-triangle (. triangle 4))
     (tset *icosahedron* i new-triangle)))
 
+;; Rotate a point with angles gamma (x), beta (y) and alpha (z)
+(fn translate-point [point x y z]
+  (local px (. point 1))
+  (local py (. point 2))
+  (local pz (. point 3))
+  
+  (local newpoint [(+ px x) (+ py y) (+ pz z)])
+  newpoint)
+
+(fn translate-icosahedron [x y z]
+  (each [i triangle (pairs *icosahedron*)]
+    (var new-triangle [])
+    (for [j 1 3 1]
+      (table.insert new-triangle (translate-point (. triangle j) x y z)))
+    ;; Insert same id
+    (table.insert new-triangle (. triangle 4))
+    (tset *icosahedron* i new-triangle)))
+
+(fn transform-icosahedron [r t]
+  (each [i triangle (pairs *icosahedron*)]
+    (var new-triangle [])
+    (for [j 1 3 1]
+      (table.insert new-triangle (translate-point (rotate-point (. triangle j)
+                                                                r.x r.y r.z)
+                                                  t.x t.y t.z)))
+    ;; Insert same id
+    (table.insert new-triangle (. triangle 4))
+    (tset *icosahedron* i new-triangle)))
+
 (fn get-tri-color [triangle]
   (local p1 (. triangle 1))
   (local p2 (. triangle 2))
@@ -1931,7 +1981,35 @@
   (sort-icosahedron))
 
 (fn update-icosahedron []
-  (rotate-icosahedron (* (/ math.pi 3) *dt*) (* (/ math.pi 2) *dt*) 0)
+  ;; Change color palette
+  (pal 7
+       (- 0xff (math.abs (math.round (* 150 (sin (* *tick* 0.01))))))
+       ;0xfa
+       (+ 0x00 (math.abs (math.round (* 50 (sin (* *tick* 0.07))))))
+       0xda)
+  (pal 0
+       (- 0xff (math.abs (math.round (* 150 (sin (* (+ *tick* 100) 0.01))))))
+       ;0xfa
+       (+ 0x00 (math.abs (math.round (* 50 (sin (* (+ *tick* 100) 0.07))))))
+       0xda)
+  (pal 15
+       (- 0xff (math.abs (math.round (* 150 (sin (* (+ *tick* 200) 0.01))))))
+       ;0xfa
+       (+ 0x00 (math.abs (math.round (* 50 (sin (* (+ *tick* 200) 0.07))))))
+       0xda)
+
+  (pal 8
+       (- 0x88 (math.abs (math.round (* 80 (sin (* (+ *tick* 50) 0.01))))))
+       (+ 0x00 (math.abs (math.round (* 30 (sin (* (+ *tick* 50) 0.07))))))
+       0x55)
+  (pal 14
+       (- 0x88 (math.abs (math.round (* 80 (sin (* (+ *tick* 150) 0.01))))))
+       (+ 0x00 (math.abs (math.round (* 30 (sin (* (+ *tick* 150) 0.07))))))
+       0x55)
+  ;; Translate and rotate in one loop
+  (transform-icosahedron { :x (* (/ math.pi 3) *dt*) :y (* (/ math.pi 2) *dt*) :z 0 }
+                         { :x 0 :y (* 0.11 (sin (* *tick* 0.05))) :z 0 })
+  ;; Sort rendering order for icosahedron triangles
   (sort-icosahedron))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1956,6 +2034,11 @@
 
   (when (btnp 4)
     (*bg-bubbles*:clear)
+    (pal 0 0x14 0x14 0x28)
+    (pal 7 0x8e 0x2e 0x91)
+    (pal 8 0x3c 0x40 0x55)
+    (pal 14 0x20 0x18 0x34)
+    (pal 15 0xf6 0x61 0xba)
     (set *bg-bubbles*.emition-delay 1000)
     (music 0)
     ;; Time when game session is started
