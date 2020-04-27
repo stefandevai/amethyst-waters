@@ -853,6 +853,7 @@
       (var changed-shot self.current-shot)
       (each [k v (ipairs self.available-shots)]
         (when (= v self.current-shot)
+          (sfx 5 70 -1 3 8 3)
           (set changed-shot
             (if (= dir :n)
                 (. self.available-shots (+ (% k (length self.available-shots)) 1))
