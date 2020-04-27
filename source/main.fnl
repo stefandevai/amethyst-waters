@@ -654,7 +654,7 @@
 
 (fn init-shots []
   (global *basic-shot* { :x 0 :y 0 :w 5 :h 1 :speedx 2 :speedy 0 :damage 2 :spr 261 :rot 0 })
-  (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 :flip 0 :rot 0 })
+  (global *blue-shot* { :x 0 :y 0 :w 8 :h 2 :speedx 8 :speedy 0 :damage 8 :spr 306 :flip 0 :rot 0 :curve 0 })
 
   ;; Implement update and draw methods
   (tset *basic-shot*
@@ -673,6 +673,7 @@
   (tset *blue-shot*
         ;; Updates a shot. Returns true if it's out of bounds, returns nil otherwise
         :update (fn [self]
+                  (dec self.speedy (* self.curve *dt*))
                   (inc self.x self.speedx)
                   (inc self.y self.speedy)
                   (out-of-bounds? self)))
@@ -719,12 +720,14 @@
       (do (sfx 7 30 -1 3 8 3)
           (local shot1 (deepcopy *blue-shot*))
           (set shot1.speedy 2)
+          (set shot1.curve 2)
           (set shot1.spr 307)
           (set shot1.flip 2)
           (set shot1.damage 2)
           (local shot2 (deepcopy *blue-shot*))
           (local shot3 (deepcopy *blue-shot*))
           (set shot3.speedy -2)
+          (set shot3.curve -2)
           (set shot3.spr 307)
           [shot1 shot2 shot3])))
 
@@ -769,7 +772,7 @@
          })
 
   (set *player*.current-shot (. *player*.available-shots (length *player*.available-shots)))
-  (set *player*.current-shot :triple-shot)
+  ;(set *player*.current-shot :triple-shot)
 
   ;; Player animations
   (tset *player*
