@@ -871,7 +871,6 @@
                   (let [should-delete? (shot:update)]
                     (shot:draw)
                     (when should-delete?
-                      ;(if shot.destroy shot:destroy)
                       (table.remove self.shots index))))
 
                 ;; Motor emitter
