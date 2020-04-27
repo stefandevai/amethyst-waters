@@ -953,10 +953,18 @@
 (fn spawn-good [type x y]
   ;; Absolute position
   (let [good { :x (r (- (math.round x) 10) (+ (math.round x) 10))
-                   :y (r (- (math.round y) 10) (+ (math.round y) 10))
-                   :w 8 :h 8 :collected? false
-                   :type type
-                   :rfactor (r 0 100)}] ; Random factor for the sin period when updating
+               :y (r (- (math.round y) 10) (+ (math.round y) 10))
+               :w 8 :h 8 :collected? false
+               :type type
+               :rfactor (r 0 100)}] ; Random factor for the sin period when updating
+    (when (= type :amethyst)
+      (set good.animator {
+        :current-animation :shining
+        :current-index 1
+        :elapsed 0
+        :speed 60
+        :animations { :shining [ 277 277 277 277 277 277 277 277 277 288 289 290 291 278 ] }
+      }))
     (table.insert goods (+ (length goods) 1) good)))
 
 (fn spawn-goods [x y points]
@@ -971,7 +979,12 @@
     (dec good.x (* *cam*.speedx *dt*))
 
     (match good.type
-      :amethyst (spr 288 good.x (+ good.y (* (sin (* (+ *tick* good.rfactor) 0.05)) 2)) 0)
+      :amethyst (do (animate good)
+                    (spr (get-animation-frame good.animator)
+                         good.x
+                         (+ good.y (* (sin (* (+ *tick* good.rfactor) 0.05)) 2))
+                         0))
+
       :life (spr 387 good.x (+ good.y (* (sin (* (+ *tick* good.rfactor) 0.05)) 2)) 0))
 
     ;; Collect amethysts if collision occurs
@@ -1663,7 +1676,7 @@
           (pix (+ i 4) (+ j 4) fill-color))))))
 
 (fn draw-hud []
-  (spr 288 5 13 0)
+  (spr 277 5 13 0)
   (if (> *player*.target-points 0)
       (print (.. *player*.points (.. "/" *player*.target-points)) 15 13 12)
       (print *player*.points 15 13 12))
