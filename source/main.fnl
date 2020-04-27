@@ -781,20 +781,29 @@
         })
 
   (if (= *player*.current-shot :basic-shot)
-      (do (set *player*.target-points 15)
-          (set *player*.animator.animations
+      (set *player*.target-points 15)
+      (= *player*.current-shot :blue-shot)
+      (set *player*.target-points 50)
+      (= *player*.current-shot :triple-shot)
+      (set *player*.target-points 0))
+
+  (tset *player*
+        :change-outfit
+        (fn [self shot]
+  (if (= shot :basic-shot)
+      (do (set self.animator.animations
            { :moving [ 257 258 259 260 ]
              :hurt [ 257 256 258 256 259 256 260 256 ] }))
-      (= *player*.current-shot :blue-shot)
-      (do (set *player*.target-points 50)
-          (set *player*.animator.animations
+      (= shot :blue-shot)
+      (do (set self.animator.animations
            { :moving [ 400 401 402 403 ]
              :hurt [ 400 256 401 256 402 256 403 256 ] }))
-      (= *player*.current-shot :triple-shot)
-      (do (set *player*.target-points 0)
-          (set *player*.animator.animations
+      (= shot :triple-shot)
+      (do (set self.animator.animations
            { :moving [ 432 433 434 435 ]
-             :hurt [ 432 256 433 256 434 256 435 256 ] })))
+             :hurt [ 432 256 433 256 434 256 435 256 ] })))))
+
+  (*player*:change-outfit *player*.current-shot)
 
   ;; Updates player and player's shots (called on TIC)
   (tset *player*
@@ -861,6 +870,7 @@
                 (. self.available-shots (if (= k 1)
                                             (length self.available-shots)
                                             (- k 1)))))))
+      (self:change-outfit changed-shot)
       changed-shot))
 
   ;; Draws player (called on OVR)
