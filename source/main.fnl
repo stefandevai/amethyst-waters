@@ -1737,12 +1737,17 @@
 
 (global *icosahedron* [])
 
-
 ;; Returns the minimum z value of the vertices of a triangle
 (fn minz [t]
   (math.min (. (. t 1) 3)
             (. (. t 2) 3)
             (. (. t 3) 3)))
+
+;; Returns the sum of the vertices of a triangle
+(fn sum-tri [t]
+  (+ (. (. t 1) 3)
+     (. (. t 2) 3)
+     (. (. t 3) 3)))
 
 ;; Field of view
 (global +fov+ 120)
@@ -1856,9 +1861,18 @@
     (inc index 4)))
 
 (fn sort-icosahedron []
-  (table.sort *icosahedron* (fn [a b] (if (< (minz b) (minz a))
-                                                        true
-                                                        false))))
+  (table.sort *icosahedron* (fn [a b]
+                              (if (< (minz b) (minz a))
+                                  true
+                                  (> (minz b) (minz a))
+                                  false
+                                  ;; To avoid a flickering glitch,
+                                  ;; when both minz are equal
+                                  ;; we sort arbitrarily by the sum of 
+                                  ;; the vertices of the triangle
+                                  (if (< (sum-tri b) (sum-tri a))
+                                      true
+                                      false)))))
 
 ;; Rotate a point with angles gamma (x), beta (y) and alpha (z)
 (fn rotate-point [point g b a]
