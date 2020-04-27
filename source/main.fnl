@@ -779,7 +779,7 @@
 
   ;; Player table object
   (global *player* {
-           :x 32 :y 68
+           :x -10 :y 68
            :w 8   :h 8
            :vx 0  :vy 0
            :shots []
@@ -1599,15 +1599,25 @@
 
 ;; Draws cave background with a parallax factor pfactor
 (fn draw-cave-bg [pfactor]
-  (loop-spr 11 230 120 2 4 pfactor)
-  (loop-spr 8 180 40 1 2 pfactor)
-  (loop-spr 11 100 70 5 5 pfactor)
-  (loop-spr 9 50 100 4 4 pfactor)
-  (loop-spr 8 100 110 1 2 pfactor)
-  (loop-spr 9 190 100 7 5 pfactor)
-  (loop-spr 8 140 100 1 2 pfactor)
-  (loop-spr 11 280 70 5 5 pfactor)
-  (loop-spr 9 120 68 2 3 pfactor))
+  (if (> map-offset-y 0)
+      (do (spr 11 230 (+ map-offset-y 120) 0 1 0 0 2 4)
+          (spr 8 180 (+ map-offset-y 40) 0 1 0 0 1 2)
+          (spr 11 100 (+ map-offset-y 70) 0 1 0 0 5 5)
+          (spr 9 50 (+ map-offset-y 100) 0 1 0 0 4 4)
+          (spr 8 100 (+ map-offset-y 110) 0 1 0 0 1 2)
+          (spr 9 190 (+ map-offset-y 100) 0 1 0 0 7 5)
+          (spr 8 140 (+ map-offset-y 100) 0 1 0 0 1 2)
+          (spr 11 280 (+ map-offset-y 70) 0 1 0 0 5 5)
+          (spr 9 120 (+ map-offset-y 68) 0 1 0 0 2 3))
+      (do (loop-spr 11 230 120 2 4 pfactor)
+          (loop-spr 8 180 40 1 2 pfactor)
+          (loop-spr 11 100 70 5 5 pfactor)
+          (loop-spr 9 50 100 4 4 pfactor)
+          (loop-spr 8 100 110 1 2 pfactor)
+          (loop-spr 9 190 100 7 5 pfactor)
+          (loop-spr 8 140 100 1 2 pfactor)
+          (loop-spr 11 280 70 5 5 pfactor)
+          (loop-spr 9 120 68 2 3 pfactor))))
 
 ;; Draws algae with a parallax factor pfactor
 (fn draw-algae [pfactor]
@@ -1615,11 +1625,10 @@
   (local sprites [ 51 54 51 52 52 53 54 51 54 53 51 53 51 53 54 52 54 52 51 53 54 52 54 51 52 54 ])
 
   (for [i 1 26 1]
-  ;(for [i 1 15 1]
     (local pos (. positions i))
-    ;(trace (length positions))
-    ;(trace (length sprites))
-    (loop-spr (. sprites i) pos (+ 136 (% pos 8)) 1 5 pfactor 0 (% pos 2))))
+    (if (> map-offset-y 0)
+      (spr (. sprites i) pos (+ 136 (% pos 8) map-offset-y) 0 1 (% pos 2) 0 1 5)
+      (loop-spr (. sprites i) pos (+ 136 (% pos 8)) 1 5 pfactor 0 (% pos 2)))))
 
 ;; Draws background decoration
 (fn draw-bg []
@@ -2047,24 +2056,28 @@
 (fn t-menu-game []
   (cls 5)
 
-  (var map-pos 196)
+  (global map-offset-y 196)
   (var particle-speed 0)
   (var title-speed 0)
   (var ico-speed 0)
   (var message-speed 0)
   (var message-delay 15)
   (when (> *time-elapsed* 0.0)
-    (set map-pos (- 236 (* 180 (ease-in-back (* 0.5 *time-elapsed*)))))
+    (global map-offset-y (- 236 (* 180 (ease-in-back (* 0.5 *time-elapsed*)))))
+    (when (< map-offset-y 0) (global map-offset-y 0))
     (set particle-speed (* 8 (ease-in-back (* 0.5 *time-elapsed*))))
     (set title-speed (* 200 (ease-in-back (* 0.5 *time-elapsed*))))
     (set ico-speed (* 260 (ease-in-back (* 0.5 *time-elapsed*))))
     (set message-speed (* 300 (ease-in-back (* 0.5 *time-elapsed*))))
     (set message-delay 10))
 
+  (rect 0 map-offset-y 240 136 0)
+  (draw-bg)
   (*bg-bubbles*:update)
 
-  (each [k part (pairs *bg-bubbles*.particles)]
-    (dec part.y particle-speed))
+  (when (> map-offset-y 0)
+    (each [k part (pairs *bg-bubbles*.particles)]
+      (dec part.y particle-speed)))
 
   ;; Print multiple times with a small offset for a bold effect
   (print "AMETHYST WATERS" (* 4 8) (- (* 3 8) title-speed) 12 true 2)
@@ -2080,22 +2093,21 @@
   (local txcam (// (math.abs *cam*.x) 8))
   (local tycam (// (math.abs *cam*.y) 8))
 
-  (when (< map-pos 138)
+  (when (< map-offset-y 138)
     (pal 0 0x14 0x14 0x28)
     (pal 7 0x8e 0x2e 0x91)
     (pal 8 0x3c 0x40 0x55)
     (pal 14 0x20 0x18 0x34)
     (pal 15 0xf6 0x61 0xba)
     (pal 6 0x20 0x2d 0x51))
-  (if (<= map-pos 0)
-      (do (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) 0 -1)
+  (if (<= map-offset-y 0)
+      (do (set *bg-bubbles*.emition-delay 1000)
           (set *player*.y 68)
-          (set *bg-bubbles*.emition-delay 1000)
-          (global *game-state* "game"))
-      (do (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) map-pos -1)
-          (set *player*.y (+ 68 map-pos))))
+          (if (>= *player*.x 32)
+              (global *game-state* "game")
+              (inc *player*.x (* 60 *dt*))))
+      (do (set *player*.y (+ 68 map-offset-y))))
 
-  (*player*:draw)
   (update-emitters))
 
 
@@ -2137,8 +2149,12 @@
 
   (global *last-block-generated* 0)
   (global *max-wall-y* 6)
+  (for [i 0 13 1]
+    (mset i 0 152)
+    (mset i 16 153))
   (generate-cave-walls 14 59 pn)
   (decorate-block 14 59)
+  (global map-offset-y 196)
 
   (global *shake* 0)
   (global *enemy-wave* :first-wave)
@@ -2285,18 +2301,23 @@
   (fn []
     (if (= *game-state* "game")
         (draw-game)
-        (and (= *game-state* "game-over") (< *time-elapsed* 2))
+        (or (and (= *game-state* "game-over") (< *time-elapsed* 2))
+            (and (= *game-state* "win") (< *time-elapsed* 10)))
         (draw-game)
-        (and (= *game-state* "win") (< *time-elapsed* 10))
-        (draw-game))))
+        (= *game-state* "t-menu-game")
+
+        (do (if (<= map-offset-y 0)
+                (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) 0 0)
+                (map txcam tycam 31 18 (- 0 (% (math.abs *cam*.x) 8)) map-offset-y 0))
+            (*player*:draw)))))
 
 (global scanline
  (fn [row]
      (if (= *game-state* "game")
          (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2))
-         (and (= *game-state* "game-over") (< *time-elapsed* 2))
-         (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2))
-         (and (= *game-state* "win") (< *time-elapsed* 10))
+         (or (and (= *game-state* "game-over") (< *time-elapsed* 2))
+             (and (= *game-state* "win") (< *time-elapsed* 10))
+             (and (= *game-state* "t-menu-game") (< map-offset-y 138)))
          (poke 0x3ff9 (* (sin (+ (/ (time) 200) (/ row 5))) 2.2)))))
 
 (init)
