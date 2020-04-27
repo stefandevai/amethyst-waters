@@ -793,8 +793,8 @@
       (= *player*.current-shot :triple-shot)
       (do (set *player*.target-points 0)
           (set *player*.animator.animations
-           { :moving [ 416 417 418 419 ]
-             :hurt [ 416 256 417 256 418 256 419 256 ] })))
+           { :moving [ 432 433 434 435 ]
+             :hurt [ 432 256 433 256 434 256 435 256 ] })))
 
   ;; Updates player and player's shots (called on TIC)
   (tset *player*
