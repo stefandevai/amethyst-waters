@@ -962,7 +962,7 @@
 
     (match good.type
       :amethyst (spr 288 good.x (+ good.y (* (sin (* (+ *tick* good.rfactor) 0.05)) 2)) 0)
-      :life (spr 291 good.x (+ good.y (* (sin (* (+ *tick* good.rfactor) 0.05)) 2)) 0))
+      :life (spr 387 good.x (+ good.y (* (sin (* (+ *tick* good.rfactor) 0.05)) 2)) 0))
 
     ;; Collect amethysts if collision occurs
     (when (bcollides? *player* good)
@@ -1583,9 +1583,9 @@
 ;;; Game                                                                                       ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;(fn update-game-debug []
-  ;(when (btnp 6)
-    ;(spawn-enemy :anglerfish)))
+(fn update-game-debug []
+  (when (btnp 6)
+    (spawn-enemy :anglerfish)))
 
 (fn draw-healthbar [x y n]
   ;; Health icon
@@ -1700,7 +1700,7 @@
       (set *cam*.offsetx 0)))
 
   (*player*:update)
-  ;(update-game-debug)
+  (update-game-debug)
   (update-enemy-spawners))
 
 ;;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;;
@@ -1929,7 +1929,7 @@
 
   (init-icosahedron)
 
-  (music 0)
+  ;(music 0)
   (init-player)
   (init-cave-walls)
   (init-enemies)
@@ -1973,8 +1973,8 @@
   (cls 5)
 
   (when (not *music-playing*)
-    (global *music-playing* true)
-    (music 0))
+    (global *music-playing* true))
+    ;(music 0))
 
   (local title-string "YOU WON!!!")
   (local width (print title-string 0 -16 12 true 2))
@@ -2078,8 +2078,8 @@
         (if (< *time-elapsed* 10)
             (do (when (> *cam*.speedx 10) (set *cam*.speedx 10))
                 (if *music-playing*
-                  (global *music-playing* false)
-                  (music))
+                  (global *music-playing* false))
+                  ;(music))
                 (when (= (% *tick* 45) 0)
                   (sfx 9 (r 20 30) -1 0 10 0)
                   (local emitter (deepcopy *pexplosion-emitter*))
