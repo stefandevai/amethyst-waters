@@ -939,6 +939,7 @@
                       (if (<= self.health 0)
                           (do (global *time-elapsed* 0)
                               (set self.state :dead)
+                              (global *shake* 30)
                               (local emitter (deepcopy *pexplosion-emitter*))
                               (set emitter.x self.x)
                               (set emitter.y self.y)
@@ -1741,23 +1742,6 @@
   (update-camera)
   (update-cave-walls)
 
-  ;; Shake screen if receives damage
-  (when (> *shake* 0)
-    ;; Shake OVR
-    (set *cam*.offsetx (r -2 2))
-    (set *cam*.offsety (r -2 2))
-
-    ;; Shake bg
-    (poke 0x3FF9 (r 0 1))
-    (poke (+ 0x3FF9 1) (r 0 1))
-
-    (decg *shake*)
-    ;; Restore defaults
-    (when (= *shake* 0)
-      (memset 0x3FF9 0 2)
-      (set *cam*.offsety 0)
-      (set *cam*.offsetx 0)))
-
   (*player*:update)
   ;(update-game-debug)
   (update-enemy-spawners))
@@ -2220,7 +2204,8 @@
 
 (fn update-game-over []
   (if (< *time-elapsed* 2)
-    (draw-bg)
+    (do (update-game)
+        (draw-bg))
     (do (cls 5)
         ;; Print multiple times with a small offset for a bold effect
         (local title-string "YOU CRASHED")
@@ -2281,6 +2266,23 @@
     (incg *tick*)
     ;; All time elapsed since the start of the game session
     (incg *elapsed* *dt*)
+
+    ;; Shake screen 
+    (when (> *shake* 0)
+      ;; Shake OVR
+      (set *cam*.offsetx (r -2 2))
+      (set *cam*.offsety (r -2 2))
+
+      ;; Shake bg
+      (poke 0x3FF9 (r 0 1))
+      (poke (+ 0x3FF9 1) (r 0 1))
+
+      (decg *shake*)
+      ;; Restore defaults
+      (when (= *shake* 0)
+        (memset 0x3FF9 0 2)
+        (set *cam*.offsety 0)
+        (set *cam*.offsetx 0)))
 
     (if (= *game-state* "game")
         (do (update-game)
