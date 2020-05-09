@@ -2120,7 +2120,8 @@
 
   (init-icosahedron)
 
-  (music 1)
+  (if (= (peek 0x13FFC) 255)
+    (music 1))
   (init-player)
   (init-cave-walls)
   (init-enemies)
