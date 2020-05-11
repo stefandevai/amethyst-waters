@@ -2174,14 +2174,14 @@
     (global *music-playing* true)
     (music 1))
 
-  (local title-string "YOU WON!!!")
+  (local title-string "THE END")
   (local width (print title-string 0 -16 12 true 2))
   (print title-string (// (- 240 width) 2) (* 2 8) 12 true 2)
   (print title-string (- (// (- 240 width) 2) 1) (* 2 8) 12 true 2)
   (print title-string (// (- 240 width) 2) (- (* 2 8) 1) 12 true 2)
 
-  (local middle-text ["You explored the Amethyst Waters."
-                      (.. "And look! You collected " *player*.points " amethysts!")])
+  (local middle-text ["Thanks for playing!"
+                      (.. "You collected " *player*.points " amethysts.")])
   (for [i 1 (length middle-text) 1]
     (local width (print (. middle-text i) 0 -16))
     (print (. middle-text i) (// (- 240 width) 2) (+ 60 (* 8 (- (* i 1.5) 1))) 15))
