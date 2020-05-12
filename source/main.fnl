@@ -1181,7 +1181,6 @@
 
   (set *anglerfish*.move
        (fn [self]
-         ;(inc self.y (+ 68 (* 50 (sin (* 0.03 self.tick)))))))
          (inc self.y (- (* 1.5 (sin (* 0.04 (+ self.tick 39)))) 0.0))))
 
   (set *anglerfish*.finish-attack
@@ -1236,8 +1235,6 @@
 
   (set *anglerfish*.update
    (fn [self]
-     ;(trace self.health)
-     ;(inc self.tick)
      (inc self.tick)
 
      (when (not= self.state :arriving)
@@ -1309,16 +1306,12 @@
        (spr (+ 371 aindex) (+ self.x (* bindex 8)) self.y 0)
        (inc bindex))
      (spr (+ 374 aindex) (+ self.x (* bindex 8)) self.y 0)))
-       ;(animate self)
-       ;(spr (get-animation-frame self.animator) self.x self.y 0 1 0 0 3 1)))
 
   (set *snake*.update
     (fn [self]
        (when (< self.w (* (+ self.length 2) 8))
          (set self.w (* (+ self.length 2) 8)))
        (dec self.x (* (+ self.speedx *cam*.speedx) *dt*))))
-       ;(inc self.y (* 0.2 (sin (* 0.05 (+ *tick* self.y)))))))
-
 
   (global *snail* (deepcopy *enemy*))
   (set *snail*.animator.animations.moving [ 266 ])
@@ -1530,9 +1523,6 @@
     (tset *spawners* spw (get-spawner spw))))
 
 (fn update-enemy-spawners []
-  ;(trace *cam*.x)
-  ;(trace (length *enemy-pool*))
-  ;(trace "---------------------")
   (when (and (< *cam*.speedx *cam*.max-speed) (= (% *tick* 400) 0))
     (inc *cam*.speedx))
 
